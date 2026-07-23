@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ארנקית — לוח בקרה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">דלגו לתוכן הראשי</a>
+
+<div x-data="app()" x-init="init()" x-cloak>
+
+  <!-- LOGIN -->
+  <template x-if="view === 'loading'">
+    <div class="center-screen"><p class="muted">טוען…</p></div>
+  </template>
+
+  <template x-if="view === 'login'">
+    <div class="center-screen">
+      <div class="card-box">
+        <h1>ארנקית</h1>
+        <p class="muted">לוח הבקרה לבעלי עסקים</p>
+        <template x-if="!magicLinkSent">
+          <div>
+            <label for="loginEmail">אימייל</label>
+            <input type="email" id="loginEmail" x-model="email" placeholder="you@business.co.il">
+            <button @click="sendMagicLink()" :disabled="!email || sending" style="width:100%;">
+              <span x-text="sending ? 'שולח…' : 'שלחו לי קישור כניסה'"></span>
+            </button>
+          </div>
+        </template>
+        <template x-if="magicLinkSent">
+          <p class="status-msg">נשלח קישור כניסה לאימייל שלך — לחצו עליו כדי להתחבר.</p>
+        </template>
+        <template x-if="authError">
+          <p class="status-msg error" x-text="authError"></p>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- ONBOARDING -->
+  <template x-if="view === 'onboarding'">
+    <div class="center-screen">
+      <div class="card-box">
+        <h1>נעים להכיר</h1>
+        <p class="muted">בואו נקים את העסק הראשון שלכם</p>
+        <label for="orgName">שם החברה / המותג</label>
+        <input type="text" id="orgName" x-model="onboarding.orgName" placeholder="קפה הפינה בע״מ">
+        <label for="businessName">שם הסניף</label>
+        <input type="text" id="businessName" x-model="onboarding.businessName" placeholder="קפה הפינה — דיזנגוף">
+        <label for="businessSlug">כתובת ציבורית (אנגלית, ללא רווחים)</label>
+        <input type="text" id="businessSlug" x-model="onboarding.slug" placeholder="cafe-hapina-dizengoff">
+        <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400; font-family:'Rubik'; color:var(--paper); margin-bottom:18px;">
+          <input type="checkbox" x-model="onboarding.acceptedTerms" style="margin-top:3px;">
+          <span style="font-size:13.5px;">קראתי ואני מסכימ/ה ל<a href="/terms.html" target="_blank" style="color:var(--mint);">תנאי השימוש</a> ול<a href="/privacy.html" target="_blank" style="color:var(--mint);">מדיניות הפרטיות</a></span>
+        </label>
+        <button @click="completeOnboarding()" :disabled="!canOnboard || sending" style="width:100%;">
+          <span x-text="sending ? 'יוצר…' : 'הקימו את העסק'"></span>
+        </button>
+        <template x-if="authError">
+          <p class="status-msg error" x-text="authError"></p>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- MFA CHALLENGE -->
+  <template x-if="view === 'mfa-challenge'">
+    <div class="center-screen">
+      <div class="card-box">
+        <h1>אימות דו-שלבי</h1>
+        <p class="muted">הזינו את הקוד בן 6 הספרות מאפליקציית האימות שלכם.</p>
+        <label for="mfaChallengeCode" class="sr-only">קוד אימות</label>
+        <input type="text" id="mfaChallengeCode" inputmode="numeric" maxlength="6" x-model="mfaChallengeCode" placeholder="123456">
+        <button @click="submitMfaChallenge()" :disabled="mfaChallengeCode.length !== 6 || sending" style="width:100%;">
+          <span x-text="sending ? 'בודק…' : 'אימות'"></span>
+        </button>
+        <template x-if="authError"><p class="status-msg error" x-text="authError"></p></template>
+      </div>
+    </div>
+  </template>
+
+  <!-- PAYWALL -->
+  <template x-if="view === 'paywall'">
+    <div class="center-screen">
+      <div class="card-box" style="max-width:460px;">
+        <h1>כמעט שם</h1>
+        <p class="muted">בחרו תוכנית כדי לפתוח את לוח הבקרה — הכרטיס, הלקוחות וההודעות שלכם ייכנסו לפעולה מיד אחרי התשלום.</p>
+        <template x-if="subscription?.status === 'past_due'">
+          <p class="status-msg error">החיוב האחרון נכשל — יש לעדכן את פרטי התשלום כדי להמשיך.</p>
+        </template>
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+          <button @click="subscribeToPlan('basic')" :disabled="sending" class="ghost" style="width:100%;">
+            בסיסי — ₪89/חודש · כרטיס אחד, 4 הודעות בחודש
+          </button>
+          <button @click="subscribeToPlan('featured')" :disabled="sending" style="width:100%;">
+            מומלץ — ₪230/חודש · כרטיסים והודעות ללא הגבלה
+          </button>
+        </div>
+        <template x-if="authError"><p class="status-msg error" x-text="authError"></p></template>
+        <button class="ghost" @click="signOut()" style="width:100%; margin-top:16px;">התנתקות</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- DASHBOARD -->
+  <template x-if="view === 'dashboard'">
+    <div>
+      <div class="topbar">
+        <div style="font-family:'Frank Ruhl Libre',serif; font-weight:700; font-size:19px;" x-text="business?.name || 'ארנקית'"></div>
+        <button class="ghost" @click="signOut()">התנתקות</button>
+      </div>
+
+      <main id="main" class="wrap">
+        <div class="tabs" role="tablist" aria-label="אזורי לוח הבקרה">
+          <button class="tab-btn" role="tab" :aria-selected="activeTab==='card'" :class="{active: activeTab==='card'}" @click="activeTab='card'">הכרטיס</button>
+          <button class="tab-btn" role="tab" :aria-selected="activeTab==='customers'" :class="{active: activeTab==='customers'}" @click="activeTab='customers'; loadCustomers()">לקוחות</button>
+          <button class="tab-btn" role="tab" :aria-selected="activeTab==='campaigns'" :class="{active: activeTab==='campaigns'}" @click="activeTab='campaigns'">קמפיינים</button>
+          <button class="tab-btn" role="tab" :aria-selected="activeTab==='billing'" :class="{active: activeTab==='billing'}" @click="activeTab='billing'; loadSubscription()">מנוי וחיוב</button>
+          <button class="tab-btn" role="tab" :aria-selected="activeTab==='security'" :class="{active: activeTab==='security'}" @click="activeTab='security'; loadMfaFactors()">אבטחה</button>
+        </div>
+
+        <!-- CARD CONFIG -->
+        <template x-if="activeTab === 'card'">
+          <div class="panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+              <h2 style="margin-bottom:0;">עיצוב הכרטיס</h2>
+              <button class="ghost" @click="createNewCard()" :disabled="!canAddCard || sending" style="font-size:13px; padding:8px 14px;">+ כרטיס נוסף</button>
+            </div>
+            <template x-if="!canAddCard">
+              <p class="muted" style="margin-bottom:14px;">התוכנית הבסיסית מוגבלת לכרטיס אחד — שדרגו לתוכנית המומלצת כדי ליצור כרטיסים נוספים.</p>
+            </template>
+            <template x-if="cards.length > 1">
+              <div class="tabs" style="margin-bottom:20px;">
+                <template x-for="c in cards" :key="c.id">
+                  <button class="tab-btn" :class="{active: c.id === card.id}" @click="selectCard(c.id)" x-text="c.name"></button>
+                </template>
+              </div>
+            </template>
+            <label for="cardName">שם הכרטיס</label>
+            <input type="text" id="cardName" x-model="card.name">
+            <label for="rewardType">סוג התגמול</label>
+            <select id="rewardType" x-model="card.reward_type">
+              <option value="stamps">תווים</option>
+              <option value="credit">נקודות → קרדיט ₪</option>
+            </select>
+            <template x-if="card.reward_type === 'stamps'">
+              <div>
+                <label for="targetCount">כמות תווים ליעד</label>
+                <input type="number" id="targetCount" x-model.number="card.target_count" min="1" max="20">
+              </div>
+            </template>
+            <label for="rewardDesc">תיאור המבצע</label>
+            <input type="text" id="rewardDesc" x-model="card.reward_description">
+            <fieldset style="border:none; padding:0; margin:0 0 14px;">
+              <legend style="font-size:12.5px; color:var(--muted); margin-bottom:6px; font-family:monospace;">צבע הכרטיס</legend>
+              <div class="swatches">
+                <button type="button" class="swatch" :class="{active: card.color_c1==='#1b3a3a'}" style="background:#1b3a3a" aria-label="ירוק כהה" :aria-pressed="card.color_c1==='#1b3a3a'" @click="setColor('#1b3a3a','#0e1f1f','#49d6c4')"></button>
+                <button type="button" class="swatch" :class="{active: card.color_c1==='#3a2a1b'}" style="background:#3a2a1b" aria-label="חום" :aria-pressed="card.color_c1==='#3a2a1b'" @click="setColor('#3a2a1b','#1f150e','#f2a93b')"></button>
+                <button type="button" class="swatch" :class="{active: card.color_c1==='#2a1b3a'}" style="background:#2a1b3a" aria-label="סגול" :aria-pressed="card.color_c1==='#2a1b3a'" @click="setColor('#2a1b3a','#170e1f','#c084fc')"></button>
+                <button type="button" class="swatch" :class="{active: card.color_c1==='#1b2a3a'}" style="background:#1b2a3a" aria-label="כחול" :aria-pressed="card.color_c1==='#1b2a3a'" @click="setColor('#1b2a3a','#0e171f','#60a5fa')"></button>
+              </div>
+            </fieldset>
+            <label for="bgUpload">תמונת רקע</label>
+            <input type="file" id="bgUpload" accept="image/*" @change="uploadBackground($event)">
+            <button @click="saveCard()" :disabled="sending" style="margin-top:10px;">
+              <span x-text="sending ? 'שומר…' : 'שמירת שינויים'"></span>
+            </button>
+            <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
+
+            <h2 style="margin-top:32px;">קישור להרשמה</h2>
+            <p class="muted">הדפיסו כפוסטר או שתפו — הלקוח סורק וזה נכנס לארנק שלו.</p>
+            <div class="qr-box" x-show="qrDataUrl"><img :src="qrDataUrl" width="160" height="160"></div>
+            <p class="muted mono" x-text="enrollUrl" style="margin-top:10px; word-break:break-all;"></p>
+          </div>
+        </template>
+
+        <!-- CUSTOMERS -->
+        <template x-if="activeTab === 'customers'">
+          <div class="panel">
+            <h2>לקוחות (<span x-text="customers.length"></span>)</h2>
+            <table>
+              <thead><tr><th>לקוח</th><th>תווים</th><th>ביקור אחרון</th><th></th></tr></thead>
+              <tbody>
+                <template x-for="c in customers" :key="c.id">
+                  <tr>
+                    <td x-text="c.phone || c.email || c.pass_serial_number.slice(0,8)"></td>
+                    <td x-text="c.stamps_count + ' / ' + card.target_count"></td>
+                    <td x-text="c.last_visit_at ? new Date(c.last_visit_at).toLocaleDateString('he-IL') : '—'"></td>
+                    <td><button @click="addStamp(c.id)">+ תו</button></td>
+                  </tr>
+                </template>
+                <template x-if="customers.length === 0">
+                  <tr><td colspan="4" class="muted">עדיין אין לקוחות רשומים.</td></tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+
+        <!-- CAMPAIGNS -->
+        <template x-if="activeTab === 'campaigns'">
+          <div class="panel">
+            <h2>שליחת הודעה ללקוחות</h2>
+            <p class="muted">ההודעה תישלח כהתראה על מסך הנעילה לכל מי שהכרטיס בארנק שלו. (דורש חיבור Apple/Google Wallet פעיל — ראו docs/SETUP_ACCOUNTS.md)</p>
+            <template x-if="isBasicPlan">
+              <p class="muted" :style="messagesRemaining === 0 ? 'color:#f26b6b' : ''" x-text="'נותרו ' + messagesRemaining + ' / 4 הודעות החודש בתוכנית הבסיסית'"></p>
+            </template>
+            <label for="campaignMessage" class="sr-only">תוכן ההודעה</label>
+            <textarea id="campaignMessage" x-model="campaignMessage" rows="3" placeholder="כפול תווים עד 16:00 היום!"></textarea>
+            <button @click="sendCampaign()" :disabled="!campaignMessage || sending || (isBasicPlan && messagesRemaining === 0)">
+              <span x-text="sending ? 'שולח…' : 'שליחה'"></span>
+            </button>
+            <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
+          </div>
+        </template>
+
+        <!-- BILLING -->
+        <template x-if="activeTab === 'billing'">
+          <div class="panel">
+            <h2>מנוי</h2>
+            <template x-if="subscription">
+              <div>
+                <p>תוכנית: <strong x-text="subscription.plan_tier"></strong>
+                  <span class="badge" :class="subscription.status" x-text="subscription.status"></span>
+                </p>
+                <p class="muted" x-text="'מחיר: ₪' + (subscription.price_agorot/100).toFixed(0) + ' לחודש'"></p>
+              </div>
+            </template>
+            <template x-if="!subscription"><p class="muted">אין עדיין מנוי פעיל.</p></template>
+          </div>
+        </template>
+
+        <!-- SECURITY -->
+        <template x-if="activeTab === 'security'">
+          <div class="panel">
+            <h2>אימות דו-שלבי (2FA)</h2>
+            <p class="muted" style="margin-bottom:16px;">שכבת הגנה נוספת — גם אם מישהו יקבל גישה לתיבת האימייל שלכם, לא יוכל להיכנס בלי הקוד מאפליקציית האימות (Google Authenticator, Authy וכד׳).</p>
+
+            <template x-if="mfaFactors.some(f => f.status === 'verified')">
+              <div>
+                <p style="color:var(--mint); margin-bottom:14px;">✓ אימות דו-שלבי פעיל</p>
+                <template x-for="f in mfaFactors.filter(f => f.status === 'verified')" :key="f.id">
+                  <button class="ghost" @click="removeMfaFactor(f.id)" :disabled="sending" style="font-size:13px;">בטלו אימות דו-שלבי</button>
+                </template>
+              </div>
+            </template>
+
+            <template x-if="!mfaFactors.some(f => f.status === 'verified') && !mfaEnrollFactorId">
+              <button @click="startMfaEnrollment()" :disabled="sending">הפעילו אימות דו-שלבי</button>
+            </template>
+
+            <template x-if="mfaEnrollFactorId">
+              <div>
+                <p class="muted" style="margin-bottom:10px;">סרקו את הקוד עם אפליקציית האימות:</p>
+                <div class="qr-box" style="margin-bottom:14px;"><img :src="mfaEnrollQr" width="160" height="160" alt="קוד QR להפעלת אימות דו-שלבי"></div>
+                <p class="muted mono" style="font-size:12px; margin-bottom:14px; word-break:break-all;" x-text="'קוד ידני: ' + mfaEnrollSecret"></p>
+                <label for="mfaEnrollCode" class="sr-only">קוד אימות בן 6 ספרות</label>
+                <input type="text" id="mfaEnrollCode" inputmode="numeric" maxlength="6" x-model="mfaEnrollCode" placeholder="הזינו את הקוד בן 6 הספרות">
+                <button @click="confirmMfaEnrollment()" :disabled="mfaEnrollCode.length !== 6 || sending">אישור</button>
+              </div>
+            </template>
+
+            <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
+          </div>
+        </template>
+      </main>
+    </div>
+  </template>
+
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

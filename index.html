@@ -13,7 +13,7 @@
     --ink-3:#242a3a;
     --paper:#f6f4ef;
     --muted:#9aa1b2;
-    --muted-2:#5b6274;
+    --muted-2:#838a9e;
     --gold:#f2a93b;
     --mint:#49d6c4;
     --line:rgba(255,255,255,0.08);
@@ -39,6 +39,18 @@
   .wrap{max-width:1180px; margin:0 auto; padding:0 28px;}
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  .skip-link{
+    position:absolute; right:16px; top:-60px; z-index:200; background:var(--mint); color:#0d1f1c;
+    padding:10px 18px; border-radius:100px; font-weight:600; transition:top .2s ease;
+  }
+  .skip-link:focus{top:16px;}
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible{
+    outline:2px solid var(--mint); outline-offset:2px;
   }
 
   /* NAV */
@@ -105,7 +117,7 @@
   .field input[type=text]:focus{outline:2px solid var(--mint); outline-offset:1px;}
   .swatches{display:flex; gap:10px;}
   .swatch{
-    width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid transparent;
+    width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid transparent; padding:0;
   }
   .swatch.active{border-color:var(--paper);}
   .row-2{display:flex; gap:14px;}
@@ -300,9 +312,11 @@
 </head>
 <body>
 
-<nav>
+<a href="#main" class="skip-link">דלגו לתוכן הראשי</a>
+
+<nav aria-label="ניווט ראשי">
   <div class="wrap">
-    <div class="logo"><span class="logo-mark">א</span>ארנקית</div>
+    <div class="logo"><span class="logo-mark" aria-hidden="true">א</span>ארנקית</div>
     <div class="navlinks">
       <a href="#why">למה זה עובד</a>
       <a href="#how">איך זה עובד</a>
@@ -314,6 +328,7 @@
   </div>
 </nav>
 
+<main id="main">
 <section class="hero">
   <div class="wrap">
     <div>
@@ -334,36 +349,36 @@
     <div class="builder">
       <div class="builder-controls">
         <div class="field">
-          <label>שם העסק</label>
+          <label for="bizName">שם העסק</label>
           <input type="text" id="bizName" value="קפה הפינה" maxlength="18">
         </div>
         <div class="row-2">
           <div class="field">
-            <label>תיאור המבצע</label>
+            <label for="reward">תיאור המבצע</label>
             <input type="text" id="reward" value="10 קפים = קפה מתנה" maxlength="28">
           </div>
         </div>
         <div class="field">
-          <label>תמונת רקע לכרטיס (אופציונלי)</label>
+          <label for="bgPhoto">תמונת רקע לכרטיס (אופציונלי)</label>
           <input type="file" id="bgPhoto" accept="image/*">
         </div>
-        <div class="field">
-          <label>סוג התגמול</label>
+        <fieldset class="field" style="border:none; padding:0;">
+          <legend style="font-size:12.5px; color:var(--muted); margin-bottom:6px; font-family:'IBM Plex Mono';">סוג התגמול</legend>
           <div class="row-2">
-            <button type="button" class="stamp-btn mode-btn active" data-mode="stamps" id="modeStampsBtn">תווים</button>
-            <button type="button" class="stamp-btn mode-btn" data-mode="credit" id="modeCreditBtn">נקודות → קרדיט ₪</button>
+            <button type="button" class="stamp-btn mode-btn active" data-mode="stamps" id="modeStampsBtn" aria-pressed="true">תווים</button>
+            <button type="button" class="stamp-btn mode-btn" data-mode="credit" id="modeCreditBtn" aria-pressed="false">נקודות → קרדיט ₪</button>
           </div>
           <div class="mode-hint" id="modeHint">☕ מתאים לבתי קפה — "קפה עשירי חינם"</div>
-        </div>
-        <div class="field">
-          <label>צבע הכרטיס</label>
+        </fieldset>
+        <fieldset class="field" style="border:none; padding:0;">
+          <legend style="font-size:12.5px; color:var(--muted); margin-bottom:6px; font-family:'IBM Plex Mono';">צבע הכרטיס</legend>
           <div class="swatches">
-            <div class="swatch active" style="background:#1b3a3a" data-c1="#1b3a3a" data-c2="#0e1f1f" data-stamp="#49d6c4"></div>
-            <div class="swatch" style="background:#3a2a1b" data-c1="#3a2a1b" data-c2="#1f150e" data-stamp="#f2a93b"></div>
-            <div class="swatch" style="background:#2a1b3a" data-c1="#2a1b3a" data-c2="#170e1f" data-stamp="#c084fc"></div>
-            <div class="swatch" style="background:#1b2a3a" data-c1="#1b2a3a" data-c2="#0e171f" data-stamp="#60a5fa"></div>
+            <button type="button" class="swatch active" style="background:#1b3a3a" data-c1="#1b3a3a" data-c2="#0e1f1f" data-stamp="#49d6c4" aria-label="ירוק כהה" aria-pressed="true"></button>
+            <button type="button" class="swatch" style="background:#3a2a1b" data-c1="#3a2a1b" data-c2="#1f150e" data-stamp="#f2a93b" aria-label="חום" aria-pressed="false"></button>
+            <button type="button" class="swatch" style="background:#2a1b3a" data-c1="#2a1b3a" data-c2="#170e1f" data-stamp="#c084fc" aria-label="סגול" aria-pressed="false"></button>
+            <button type="button" class="swatch" style="background:#1b2a3a" data-c1="#1b2a3a" data-c2="#0e171f" data-stamp="#60a5fa" aria-label="כחול" aria-pressed="false"></button>
           </div>
-        </div>
+        </fieldset>
       </div>
 
       <div class="pass-stage">
@@ -490,15 +505,15 @@
       <div class="comment-form">
         <h3>השאירו תגובה</h3>
         <div class="field">
-          <label>שם</label>
+          <label for="cName">שם</label>
           <input type="text" id="cName" placeholder="איך לקרוא לכם">
         </div>
         <div class="field">
-          <label>סוג העסק (אופציונלי)</label>
+          <label for="cBiz">סוג העסק (אופציונלי)</label>
           <input type="text" id="cBiz" placeholder="לדוגמה: בית קפה, מסעדה, לקוח">
         </div>
         <div class="field">
-          <label>התגובה שלכם</label>
+          <label for="cText">התגובה שלכם</label>
           <textarea id="cText" placeholder="מה דעתכם על הרעיון?"></textarea>
         </div>
         <button class="btn btn-primary" id="cSubmit" style="width:100%; justify-content:center;">פרסמו תגובה</button>
@@ -532,7 +547,7 @@
       </div>
       <div class="price-card featured">
         <div class="price-tier mono">מומלץ</div>
-        <div class="price-amount">₪179<span>/חודש</span></div>
+        <div class="price-amount">₪230<span>/חודש</span></div>
         <div class="price-desc">לעסק שרוצה לצמוח ברצינות</div>
         <ul class="price-list">
           <li><span class="check">✓</span>כרטיסים ומבצעים ללא הגבלה</li>
@@ -562,19 +577,26 @@
     <div class="cta-block">
       <h2>רוצים להיות מבין העסקים הראשונים?</h2>
       <p>נרשמים לרשימת ההמתנה, ואנחנו יוצרים לכם הדגמה חינם עם הלוגו והשם שלכם.</p>
-      <form class="waitlist-form" onsubmit="event.preventDefault(); document.getElementById('formMsg').textContent='תודה! נחזור אליכם בקרוב.';">
-        <input type="email" placeholder="האימייל שלכם" required>
+      <form class="waitlist-form" id="waitlistForm">
+        <label for="waitlistEmail" class="sr-only">האימייל שלכם</label>
+        <input type="email" id="waitlistEmail" placeholder="האימייל שלכם" required>
         <button type="submit" class="btn btn-primary">שריינו לי מקום</button>
       </form>
-      <div class="waitlist-note" id="formMsg">טופס להדגמה בלבד — עדיין לא מחובר למערכת שליחה אמיתית.</div>
+      <div class="waitlist-note" id="formMsg">נרשמים לרשימת ההמתנה — נחזור אליכם בקרוב.</div>
     </div>
   </div>
 </section>
 
+</main>
+
 <footer>
   <div class="wrap">
     <div>© 2026 ארנקית — קונספט מוצר, בבנייה.</div>
-    <div>נבנה כדוגמת אב־טיפוס.</div>
+    <div style="display:flex; gap:18px;">
+      <a href="/privacy.html">מדיניות פרטיות</a>
+      <a href="/terms.html">תנאי שימוש</a>
+      <a href="/accessibility.html">הצהרת נגישות</a>
+    </div>
   </div>
 </footer>
 
@@ -618,8 +640,9 @@
 
   document.querySelectorAll('.swatch').forEach(sw => {
     sw.addEventListener('click', () => {
-      document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.swatch').forEach(s => { s.classList.remove('active'); s.setAttribute('aria-pressed', 'false'); });
       sw.classList.add('active');
+      sw.setAttribute('aria-pressed', 'true');
       passCard.style.setProperty('--pass-c1', sw.dataset.c1);
       passCard.style.setProperty('--pass-c2', sw.dataset.c2);
       passCard.style.setProperty('--stamp-color', sw.dataset.stamp);
@@ -652,6 +675,8 @@
     rewardMode = mode;
     modeStampsBtn.classList.toggle('active', mode === 'stamps');
     modeCreditBtn.classList.toggle('active', mode === 'credit');
+    modeStampsBtn.setAttribute('aria-pressed', String(mode === 'stamps'));
+    modeCreditBtn.setAttribute('aria-pressed', String(mode === 'credit'));
     stampsGridEl.style.display = mode === 'stamps' ? 'grid' : 'none';
     creditBar.classList.toggle('show', mode === 'credit');
     passReward.textContent = mode === 'stamps'
@@ -762,6 +787,31 @@
   });
 
   loadComments();
+
+  // ===== WAITLIST =====
+  const waitlistForm = document.getElementById('waitlistForm');
+  const waitlistEmail = document.getElementById('waitlistEmail');
+  const formMsg = document.getElementById('formMsg');
+
+  waitlistForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if(!sb){
+      formMsg.textContent = 'החיבור למסד הנתונים עוד לא הוגדר (ראו README).';
+      return;
+    }
+    const submitBtn = waitlistForm.querySelector('button[type=submit]');
+    submitBtn.disabled = true;
+    const { error } = await sb.functions.invoke('waitlist-submit', {
+      body: { email: waitlistEmail.value.trim() }
+    });
+    submitBtn.disabled = false;
+    if(error){
+      formMsg.textContent = 'שגיאה בהרשמה, נסו שוב.';
+      return;
+    }
+    waitlistEmail.value = '';
+    formMsg.textContent = 'תודה! נחזור אליכם בקרוב.';
+  });
 </script>
 
 </body>

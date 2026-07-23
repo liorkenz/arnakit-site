@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.local
+*.p12
+*.p8
+*.pem
+service-account*.json
+.DS_Store
