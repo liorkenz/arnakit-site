@@ -37,6 +37,10 @@ window.app = function app() {
     mfaEnrollQr: '',
     mfaEnrollSecret: '',
     mfaEnrollCode: '',
+    isPlatformAdmin: false,
+    adminClients: [],
+    adminSelectedClient: null,
+    preAdminView: 'dashboard',
 
     get canOnboard() {
       return this.onboarding.orgName && this.onboarding.businessName && this.onboarding.slug && this.onboarding.acceptedTerms;
@@ -58,7 +62,46 @@ window.app = function app() {
         this.session = session;
         this.loadOrg();
       });
+      await this.checkPlatformAdmin();
       await this.loadOrg();
+    },
+
+    async checkPlatformAdmin() {
+      if (!this.session) return;
+      // No-op for everyone except whoever is first to call it — see migration
+      // 0012's bootstrap_platform_admin(). Safe to call every load.
+      await supabase.rpc('bootstrap_platform_admin').catch(() => {});
+      const { data } = await supabase
+        .from('platform_admins')
+        .select('user_id')
+        .eq('user_id', this.session.user.id)
+        .maybeSingle();
+      this.isPlatformAdmin = !!data;
+    },
+
+    async openAdminPanel() {
+      this.preAdminView = this.view;
+      this.view = 'admin';
+      this.sending = true;
+      const { data, error } = await supabase.functions.invoke('admin-list-clients');
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.adminClients = data.clients;
+    },
+
+    closeAdminPanel() {
+      this.view = this.preAdminView;
+      this.adminSelectedClient = null;
+    },
+
+    async openAdminClientDetail(businessId) {
+      this.sending = true;
+      const { data, error } = await supabase.functions.invoke('admin-client-detail', {
+        body: { business_id: businessId },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.adminSelectedClient = data;
     },
 
     async sendMagicLink() {
@@ -159,6 +202,19 @@ window.app = function app() {
         .eq('org_id', this.org.id)
         .maybeSingle();
       this.subscription = data || null;
+    },
+
+    async cancelSubscription() {
+      if (!confirm('לבטל את המנוי? כרטיס הנאמנות שלכם יופסק וללקוחות חדשים לא יוכלו להירשם עוד.')) return;
+      this.sending = true;
+      this.statusMsg = '';
+      const { error } = await supabase.functions.invoke('cancel-subscription', {
+        body: { org_id: this.org.id },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      await this.loadSubscription();
+      this.statusMsg = 'המנוי בוטל.';
     },
 
     async subscribeToPlan(planTier) {

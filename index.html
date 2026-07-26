@@ -30,7 +30,24 @@
     font-family:'Rubik', sans-serif;
     line-height:1.55;
     overflow-x:hidden;
+    position:relative;
   }
+  /* subtle film-grain overlay for depth — pure CSS/SVG, no image download */
+  body::before{
+    content:''; position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .orb{
+    position:fixed; border-radius:50%; filter:blur(80px); pointer-events:none; z-index:0;
+    animation:orbFloat 22s ease-in-out infinite;
+  }
+  .orb-1{width:520px; height:520px; top:-160px; right:-120px; background:radial-gradient(circle, rgba(73,214,196,0.16), transparent 70%);}
+  .orb-2{width:420px; height:420px; bottom:10%; left:-140px; background:radial-gradient(circle, rgba(242,169,59,0.12), transparent 70%); animation-delay:-11s; animation-duration:26s;}
+  @keyframes orbFloat{
+    0%, 100%{transform:translate(0, 0) scale(1);}
+    50%{transform:translate(-30px, 40px) scale(1.08);}
+  }
+  @media (prefers-reduced-motion: reduce){ .orb{animation:none;} }
   .mono{font-family:'IBM Plex Mono', monospace;}
   .display{font-family:'Frank Ruhl Libre', serif;}
   .reveal{opacity:0; transform:translateY(22px); transition:opacity .7s ease, transform .7s ease;}
@@ -75,10 +92,22 @@
     padding:12px 22px; border-radius:100px; font-weight:600; font-size:15px;
     cursor:pointer; border:none; transition:transform .15s ease, box-shadow .15s ease;
   }
+  .btn{transition:transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease, border-color .2s ease;}
   .btn-primary{background:var(--mint); color:#0d1f1c;}
-  .btn-primary:hover{transform:translateY(-1px); box-shadow:0 8px 24px rgba(73,214,196,0.25);}
+  .btn-primary:hover{transform:translateY(-2px) scale(1.02); box-shadow:0 12px 32px rgba(73,214,196,0.35);}
+  .btn-primary:active{transform:translateY(0) scale(0.97);}
   .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--paper);}
-  .btn-ghost:hover{border-color:var(--muted);}
+  .btn-ghost:hover{border-color:var(--mint); transform:translateY(-2px);}
+  .btn-ghost:active{transform:translateY(0) scale(0.97);}
+  /* hero entrance: staggered fade+rise, ~40ms apart per stagger-sequence guidance */
+  .hero-in{opacity:0; transform:translateY(18px); animation:heroRise .8s cubic-bezier(.16,1,.3,1) forwards;}
+  .hero-in:nth-child(1){animation-delay:.05s;}
+  .hero-in:nth-child(2){animation-delay:.12s;}
+  .hero-in:nth-child(3){animation-delay:.19s;}
+  .hero-in:nth-child(4){animation-delay:.26s;}
+  .hero-in:nth-child(5){animation-delay:.33s;}
+  @keyframes heroRise{ to{opacity:1; transform:translateY(0);} }
+  @media (prefers-reduced-motion: reduce){ .hero-in{animation:none; opacity:1; transform:none;} }
   @media (max-width:860px){ .navlinks{display:none;} }
 
   /* HERO */
@@ -125,13 +154,21 @@
 
   /* the pass mockup */
   .pass-stage{display:flex; justify-content:center; padding:8px 0 4px;}
+  .pass-stage{perspective:1200px;}
   .phone{
     width:272px; border-radius:40px; padding:14px 12px;
     background:linear-gradient(160deg, #2a2e3d, #14161e);
     border:1px solid rgba(255,255,255,0.08);
     box-shadow:0 30px 70px -25px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06);
     position:relative;
+    transform-style:preserve-3d;
+    transition:transform .4s cubic-bezier(.16,1,.3,1), box-shadow .4s ease;
+    will-change:transform;
   }
+  .pass-stage:hover .phone{
+    box-shadow:0 40px 90px -25px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  @media (prefers-reduced-motion: reduce){ .phone{transition:none;} }
   .phone::before{
     content:''; position:absolute; top:14px; left:50%; transform:translateX(-50%);
     width:70px; height:5px; border-radius:100px; background:rgba(255,255,255,0.14);
@@ -312,6 +349,9 @@
 </head>
 <body>
 
+<div class="orb orb-1" aria-hidden="true"></div>
+<div class="orb orb-2" aria-hidden="true"></div>
+
 <a href="#main" class="skip-link">דלגו לתוכן הראשי</a>
 
 <nav aria-label="ניווט ראשי">
@@ -332,14 +372,14 @@
 <section class="hero">
   <div class="wrap">
     <div>
-      <div class="eyebrow"><span class="dot"></span>ראשונים בישראל</div>
-      <h1>כרטיס הנאמנות של העסק שלכם, <span class="accent">ישר בארנק הדיגיטלי</span> של הלקוח</h1>
-      <p class="lead">בלי אפליקציה להוריד, בלי כרטיסי נייר לאבד. הלקוחות סורקים קוד QR פעם אחת, והכרטיס יושב ל־Apple Wallet או Google Wallet — קבוע, ליד כרטיס האשראי שלהם.</p>
-      <div class="hero-ctas">
+      <div class="eyebrow hero-in"><span class="dot"></span>ראשונים בישראל</div>
+      <h1 class="hero-in">כרטיס הנאמנות של העסק שלכם, <span class="accent">ישר בארנק הדיגיטלי</span> של הלקוח</h1>
+      <p class="lead hero-in">בלי אפליקציה להוריד, בלי כרטיסי נייר לאבד. הלקוחות סורקים קוד QR פעם אחת, והכרטיס יושב ל־Apple Wallet או Google Wallet — קבוע, ליד כרטיס האשראי שלהם.</p>
+      <div class="hero-ctas hero-in">
         <a href="#waitlist" class="btn btn-primary">קבלו הדגמה חינם</a>
         <a href="#how" class="btn btn-ghost">איך זה עובד ↓</a>
       </div>
-      <div class="trust-row">
+      <div class="trust-row hero-in">
         <span>⚡ הקמה תוך פחות משעה</span>
         <span>📵 אפס אפליקציה ללקוח</span>
         <span>🇮🇱 תמיכה בעברית</span>
@@ -710,6 +750,23 @@
     entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('in'); });
   }, {threshold:0.15});
   document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // subtle 3D tilt on the wallet pass mockup, following the cursor — desktop only,
+  // disabled under reduced-motion since it's a continuous transform effect
+  const passStage = document.querySelector('.pass-stage');
+  const phoneEl = document.querySelector('.phone');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (passStage && phoneEl && !prefersReducedMotion && window.matchMedia('(hover: hover)').matches) {
+    passStage.addEventListener('mousemove', (e) => {
+      const rect = passStage.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      phoneEl.style.transform = `rotateY(${x * 14}deg) rotateX(${-y * 14}deg) translateZ(10px)`;
+    });
+    passStage.addEventListener('mouseleave', () => {
+      phoneEl.style.transform = '';
+    });
+  }
 
   // ===== COMMENTS (Supabase) =====
   // 1. Create a free project at https://supabase.com

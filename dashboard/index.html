@@ -65,6 +65,9 @@
         <template x-if="authError">
           <p class="status-msg error" x-text="authError"></p>
         </template>
+        <template x-if="isPlatformAdmin">
+          <button class="ghost" @click="openAdminPanel()" style="width:100%; margin-top:14px; font-size:13px;">פאנל ניהול הפלטפורמה</button>
+        </template>
       </div>
     </div>
   </template>
@@ -113,7 +116,12 @@
     <div>
       <div class="topbar">
         <div style="font-family:'Frank Ruhl Libre',serif; font-weight:700; font-size:19px;" x-text="business?.name || 'ארנקית'"></div>
-        <button class="ghost" @click="signOut()">התנתקות</button>
+        <div style="display:flex; gap:10px;">
+          <template x-if="isPlatformAdmin">
+            <button class="ghost" @click="openAdminPanel()">פאנל ניהול</button>
+          </template>
+          <button class="ghost" @click="signOut()">התנתקות</button>
+        </div>
       </div>
 
       <main id="main" class="wrap">
@@ -230,6 +238,10 @@
                   <span class="badge" :class="subscription.status" x-text="subscription.status"></span>
                 </p>
                 <p class="muted" x-text="'מחיר: ₪' + (subscription.price_agorot/100).toFixed(0) + ' לחודש'"></p>
+                <template x-if="subscription.status === 'active'">
+                  <button class="ghost" @click="cancelSubscription()" :disabled="sending" style="margin-top:14px; font-size:13px;">ביטול המנוי</button>
+                </template>
+                <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
               </div>
             </template>
             <template x-if="!subscription"><p class="muted">אין עדיין מנוי פעיל.</p></template>
@@ -267,6 +279,60 @@
             </template>
 
             <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
+          </div>
+        </template>
+      </main>
+    </div>
+  </template>
+
+  <!-- ADMIN PANEL (platform-wide, not scoped to one org) -->
+  <template x-if="view === 'admin'">
+    <div>
+      <div class="topbar">
+        <div style="font-family:'Frank Ruhl Libre',serif; font-weight:700; font-size:19px;">פאנל ניהול הפלטפורמה</div>
+        <button class="ghost" @click="closeAdminPanel()">חזרה</button>
+      </div>
+      <main class="wrap">
+        <template x-if="!adminSelectedClient">
+          <div class="panel">
+            <h2>כל הלקוחות (<span x-text="adminClients.length"></span>)</h2>
+            <table>
+              <thead><tr><th>עסק</th><th>ארגון</th><th>תוכנית</th><th>סטטוס</th><th>לקוחות</th></tr></thead>
+              <tbody>
+                <template x-for="c in adminClients" :key="c.business_id">
+                  <tr style="cursor:pointer;" @click="openAdminClientDetail(c.business_id)">
+                    <td x-text="c.business_name"></td>
+                    <td x-text="c.org_name"></td>
+                    <td x-text="c.plan_tier || '—'"></td>
+                    <td><span class="badge" :class="c.subscription_status" x-text="c.subscription_status || '—'"></span></td>
+                    <td x-text="c.total_customers"></td>
+                  </tr>
+                </template>
+                <template x-if="adminClients.length === 0">
+                  <tr><td colspan="5" class="muted">אין עדיין לקוחות רשומים.</td></tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+
+        <template x-if="adminSelectedClient">
+          <div class="panel">
+            <button class="ghost" @click="adminSelectedClient = null" style="margin-bottom:16px; font-size:13px;">← חזרה לרשימה</button>
+            <h2 x-text="adminSelectedClient.business.name"></h2>
+            <p class="muted" style="margin-bottom:20px;" x-text="'סה\'כ לקוחות: ' + adminSelectedClient.total_customers"></p>
+            <table>
+              <thead><tr><th>כרטיס</th><th>סוג</th><th>סטטוס</th></tr></thead>
+              <tbody>
+                <template x-for="card in adminSelectedClient.cards" :key="card.id">
+                  <tr>
+                    <td x-text="card.name"></td>
+                    <td x-text="card.reward_type === 'stamps' ? 'תווים' : 'קרדיט'"></td>
+                    <td x-text="card.is_active ? 'פעיל' : 'לא פעיל'"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
           </div>
         </template>
       </main>
