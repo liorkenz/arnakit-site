@@ -19,6 +19,9 @@ window.app = function app() {
     onboarding: { orgName: '', businessName: '', slug: '', acceptedTerms: false },
     org: null,
     business: null,
+    businesses: [],
+    newBranchName: '',
+    newBranchSlug: '',
     subscription: null,
     card: {},
     cards: [],
@@ -41,6 +44,8 @@ window.app = function app() {
     adminClients: [],
     adminSelectedClient: null,
     preAdminView: 'dashboard',
+    purchaseAmounts: {},
+    redeemAmounts: {},
 
     get canOnboard() {
       return this.onboarding.orgName && this.onboarding.businessName && this.onboarding.slug && this.onboarding.acceptedTerms;
@@ -48,8 +53,14 @@ window.app = function app() {
     get isBasicPlan() {
       return this.subscription?.plan_tier === 'basic';
     },
+    get isChainPlan() {
+      return this.subscription?.plan_tier === 'chain';
+    },
     get canAddCard() {
       return !this.isBasicPlan || this.cards.length === 0;
+    },
+    get canAddBranch() {
+      return this.isChainPlan;
     },
     get messagesRemaining() {
       return this.isBasicPlan ? Math.max(0, 4 - this.campaignsSentThisMonth) : null;
@@ -94,10 +105,10 @@ window.app = function app() {
       this.adminSelectedClient = null;
     },
 
-    async openAdminClientDetail(businessId) {
+    async openAdminClientDetail(orgId) {
       this.sending = true;
       const { data, error } = await supabase.functions.invoke('admin-client-detail', {
-        body: { business_id: businessId },
+        body: { org_id: orgId },
       });
       this.sending = false;
       if (error) { this.statusMsg = error.message; return; }
@@ -168,6 +179,7 @@ window.app = function app() {
         return;
       }
 
+      this.businesses = businesses;
       this.business = businesses[0];
 
       await this.loadSubscription();
@@ -242,11 +254,36 @@ window.app = function app() {
       await this.loadOrg();
     },
 
+    selectBranch(businessId) {
+      this.business = this.businesses.find((b) => b.id === businessId) || this.business;
+      this.buildEnrollUrl();
+    },
+
+    async createBranch() {
+      if (!this.canAddBranch || !this.newBranchName || !this.newBranchSlug) return;
+      this.sending = true;
+      this.statusMsg = '';
+      const { data, error } = await supabase.rpc('create_business_for_org', {
+        p_org_id: this.org.id,
+        p_name: this.newBranchName,
+        p_slug: this.newBranchSlug,
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      const { data: business } = await supabase.from('businesses').select('*').eq('id', data).single();
+      this.businesses.push(business);
+      this.newBranchName = '';
+      this.newBranchSlug = '';
+    },
+
     async loadCards() {
+      // Cards belong to the org (shared chain-wide across every branch), not to
+      // a single business — this is what lets a customer use their points at
+      // any location of the same chain.
       const { data } = await supabase
         .from('loyalty_cards')
         .select('*')
-        .eq('business_id', this.business.id)
+        .eq('org_id', this.org.id)
         .order('created_at', { ascending: true });
       this.cards = data || [];
       this.card = this.cards[0] || {};
@@ -263,7 +300,7 @@ window.app = function app() {
       const { data, error } = await supabase
         .from('loyalty_cards')
         .insert({
-          business_id: this.business.id,
+          org_id: this.org.id,
           name: 'כרטיס חדש',
           reward_type: 'stamps',
           target_count: 10,
@@ -296,6 +333,7 @@ window.app = function app() {
           color_c1: this.card.color_c1,
           color_c2: this.card.color_c2,
           stamp_color: this.card.stamp_color,
+          credit_earn_rate_percent: this.card.credit_earn_rate_percent,
         })
         .eq('id', this.card.id);
       this.sending = false;
@@ -306,7 +344,7 @@ window.app = function app() {
       const file = evt.target.files[0];
       if (!file) return;
       this.sending = true;
-      const path = `${this.business.id}/${Date.now()}-${file.name}`;
+      const path = `${this.org.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from('card-backgrounds')
         .upload(path, file);
@@ -322,10 +360,11 @@ window.app = function app() {
     },
 
     async loadCustomers() {
+      // Org-wide: a chain's customer list is shared across all its branches.
       const { data } = await supabase
         .from('customers')
         .select('*')
-        .eq('business_id', this.business.id)
+        .eq('org_id', this.org.id)
         .order('last_visit_at', { ascending: false, nullsFirst: false });
       this.customers = data || [];
     },
@@ -333,12 +372,71 @@ window.app = function app() {
     async addStamp(customerId) {
       const { error } = await supabase.from('stamp_events').insert({
         customer_id: customerId,
-        business_id: this.business.id,
+        org_id: this.org.id,
         delta: 1,
         type: 'stamp',
         created_by: this.session.user.id,
       });
       if (!error) await this.loadCustomers();
+    },
+
+    // Credit-mode cards: the restaurateur enters the sale amount and the system
+    // computes the earned credit automatically from the card's configured rate —
+    // no manual percentage math for them to get wrong.
+    async recordPurchase(customerId) {
+      const amount = Number(this.purchaseAmounts[customerId]);
+      if (!amount || amount <= 0) return;
+      const rate = this.card.credit_earn_rate_percent ?? 10;
+      const earnedAgorot = Math.round(amount * (rate / 100) * 100);
+      const { error } = await supabase.from('stamp_events').insert({
+        customer_id: customerId,
+        org_id: this.org.id,
+        delta: earnedAgorot,
+        type: 'credit',
+        created_by: this.session.user.id,
+        note: `רכישה בסך ₪${amount}`,
+      });
+      if (!error) {
+        this.purchaseAmounts[customerId] = '';
+        await this.loadCustomers();
+      } else {
+        this.statusMsg = error.message;
+      }
+    },
+
+    // Customer wants to spend N points/credit on something — deducts it.
+    async redeemCredit(customerId) {
+      const amount = Number(this.redeemAmounts[customerId]);
+      if (!amount || amount <= 0) return;
+      const { error } = await supabase.from('stamp_events').insert({
+        customer_id: customerId,
+        org_id: this.org.id,
+        delta: -Math.round(amount * 100),
+        type: 'redeem',
+        created_by: this.session.user.id,
+        note: `מימוש ₪${amount}`,
+      });
+      if (!error) {
+        this.redeemAmounts[customerId] = '';
+        await this.loadCustomers();
+      } else {
+        this.statusMsg = error.message;
+      }
+    },
+
+    // Stamp card hit its target (e.g. 10/10) — resets the counter once the
+    // reward has been handed over.
+    async redeemStampReward(customerId, currentCount) {
+      const { error } = await supabase.from('stamp_events').insert({
+        customer_id: customerId,
+        org_id: this.org.id,
+        delta: -currentCount,
+        type: 'reset',
+        created_by: this.session.user.id,
+        note: 'מימוש פרס',
+      });
+      if (!error) await this.loadCustomers();
+      else this.statusMsg = error.message;
     },
 
     async loadCampaignQuotaUsage() {
@@ -348,7 +446,7 @@ window.app = function app() {
       const { count } = await supabase
         .from('push_campaigns')
         .select('id', { count: 'exact', head: true })
-        .eq('business_id', this.business.id)
+        .eq('org_id', this.org.id)
         .eq('status', 'sent')
         .gte('sent_at', periodStart);
       this.campaignsSentThisMonth = count || 0;
@@ -358,7 +456,7 @@ window.app = function app() {
       this.sending = true;
       this.statusMsg = '';
       const { error } = await supabase.functions.invoke('send-campaign', {
-        body: { business_id: this.business.id, message: this.campaignMessage },
+        body: { org_id: this.org.id, message: this.campaignMessage },
       });
       this.sending = false;
       if (error) { this.statusMsg = error.message; return; }

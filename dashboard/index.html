@@ -163,6 +163,13 @@
                 <input type="number" id="targetCount" x-model.number="card.target_count" min="1" max="20">
               </div>
             </template>
+            <template x-if="card.reward_type === 'credit'">
+              <div>
+                <label for="earnRate">אחוז מהקנייה שהופך לקרדיט (%)</label>
+                <input type="number" id="earnRate" x-model.number="card.credit_earn_rate_percent" min="1" max="100" step="0.5">
+                <p class="muted" style="font-size:12.5px; margin-top:-8px; margin-bottom:14px;" x-text="'לדוגמה: קנייה של ₪100 תזכה ב-₪' + ((card.credit_earn_rate_percent || 0)).toFixed(0) + ' קרדיט'"></p>
+              </div>
+            </template>
             <label for="rewardDesc">תיאור המבצע</label>
             <input type="text" id="rewardDesc" x-model="card.reward_description">
             <fieldset style="border:none; padding:0; margin:0 0 14px;">
@@ -181,10 +188,33 @@
             </button>
             <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
 
+            <template x-if="businesses.length > 1">
+              <div>
+                <h2 style="margin-top:32px;">סניף לתצוגת הקישור</h2>
+                <p class="muted" style="margin-bottom:12px;">הכרטיס והלקוחות משותפים לכל הסניפים — כל סניף מקבל קישור/QR נפרד להדפסה, אבל הנקודות של הלקוח עובדות בכולם.</p>
+                <select @change="selectBranch($event.target.value)">
+                  <template x-for="b in businesses" :key="b.id">
+                    <option :value="b.id" :selected="b.id === business.id" x-text="b.name"></option>
+                  </template>
+                </select>
+              </div>
+            </template>
+
             <h2 style="margin-top:32px;">קישור להרשמה</h2>
-            <p class="muted">הדפיסו כפוסטר או שתפו — הלקוח סורק וזה נכנס לארנק שלו.</p>
+            <p class="muted" x-text="businesses.length > 1 ? 'הדפיסו כפוסטר בסניף ' + business.name + ' — הלקוח סורק וזה נכנס לארנק שלו, ותקף בכל סניפי הרשת.' : 'הדפיסו כפוסטר או שתפו — הלקוח סורק וזה נכנס לארנק שלו.'"></p>
             <div class="qr-box" x-show="qrDataUrl"><img :src="qrDataUrl" width="160" height="160"></div>
             <p class="muted mono" x-text="enrollUrl" style="margin-top:10px; word-break:break-all;"></p>
+
+            <template x-if="canAddBranch">
+              <div>
+                <h2 style="margin-top:32px;">הוספת סניף</h2>
+                <label for="newBranchName">שם הסניף</label>
+                <input type="text" id="newBranchName" x-model="newBranchName" placeholder="קפה הפינה — רמת אביב">
+                <label for="newBranchSlug">כתובת ציבורית (אנגלית, ללא רווחים)</label>
+                <input type="text" id="newBranchSlug" x-model="newBranchSlug" placeholder="cafe-hapina-ramat-aviv">
+                <button @click="createBranch()" :disabled="!newBranchName || !newBranchSlug || sending">הוספת סניף</button>
+              </div>
+            </template>
           </div>
         </template>
 
@@ -192,15 +222,40 @@
         <template x-if="activeTab === 'customers'">
           <div class="panel">
             <h2>לקוחות (<span x-text="customers.length"></span>)</h2>
+            <p class="muted" style="margin-bottom:16px;">הלקוחות והנקודות משותפים לכל סניפי הרשת.</p>
             <table>
-              <thead><tr><th>לקוח</th><th>תווים</th><th>ביקור אחרון</th><th></th></tr></thead>
+              <thead>
+                <tr>
+                  <th>לקוח</th>
+                  <th x-text="card.reward_type === 'stamps' ? 'תווים' : 'קרדיט'"></th>
+                  <th>ביקור אחרון</th>
+                  <th></th>
+                </tr>
+              </thead>
               <tbody>
                 <template x-for="c in customers" :key="c.id">
                   <tr>
                     <td x-text="c.phone || c.email || c.pass_serial_number.slice(0,8)"></td>
-                    <td x-text="c.stamps_count + ' / ' + card.target_count"></td>
+                    <td x-text="card.reward_type === 'stamps' ? (c.stamps_count + ' / ' + card.target_count) : ('₪' + (c.credit_balance_agorot/100).toFixed(0))"></td>
                     <td x-text="c.last_visit_at ? new Date(c.last_visit_at).toLocaleDateString('he-IL') : '—'"></td>
-                    <td><button @click="addStamp(c.id)">+ תו</button></td>
+                    <td>
+                      <template x-if="card.reward_type === 'stamps'">
+                        <div style="display:flex; gap:6px; align-items:center;">
+                          <button @click="addStamp(c.id)">+ תו</button>
+                          <template x-if="c.stamps_count >= card.target_count">
+                            <button class="ghost" @click="redeemStampReward(c.id, c.stamps_count)">פדה פרס</button>
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="card.reward_type === 'credit'">
+                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                          <input type="number" x-model="purchaseAmounts[c.id]" placeholder="₪ קנייה" style="width:90px; margin:0;" min="0">
+                          <button @click="recordPurchase(c.id)">הוסף</button>
+                          <input type="number" x-model="redeemAmounts[c.id]" placeholder="₪ מימוש" style="width:90px; margin:0;" min="0">
+                          <button class="ghost" @click="redeemCredit(c.id)">מימוש</button>
+                        </div>
+                      </template>
+                    </td>
                   </tr>
                 </template>
                 <template x-if="customers.length === 0">
@@ -297,14 +352,14 @@
           <div class="panel">
             <h2>כל הלקוחות (<span x-text="adminClients.length"></span>)</h2>
             <table>
-              <thead><tr><th>עסק</th><th>ארגון</th><th>תוכנית</th><th>סטטוס</th><th>לקוחות</th></tr></thead>
+              <thead><tr><th>ארגון</th><th>תוכנית</th><th>סטטוס</th><th>סניפים</th><th>לקוחות</th></tr></thead>
               <tbody>
-                <template x-for="c in adminClients" :key="c.business_id">
-                  <tr style="cursor:pointer;" @click="openAdminClientDetail(c.business_id)">
-                    <td x-text="c.business_name"></td>
+                <template x-for="c in adminClients" :key="c.org_id">
+                  <tr style="cursor:pointer;" @click="openAdminClientDetail(c.org_id)">
                     <td x-text="c.org_name"></td>
                     <td x-text="c.plan_tier || '—'"></td>
                     <td><span class="badge" :class="c.subscription_status" x-text="c.subscription_status || '—'"></span></td>
+                    <td x-text="c.branch_count"></td>
                     <td x-text="c.total_customers"></td>
                   </tr>
                 </template>
@@ -319,8 +374,18 @@
         <template x-if="adminSelectedClient">
           <div class="panel">
             <button class="ghost" @click="adminSelectedClient = null" style="margin-bottom:16px; font-size:13px;">← חזרה לרשימה</button>
-            <h2 x-text="adminSelectedClient.business.name"></h2>
-            <p class="muted" style="margin-bottom:20px;" x-text="'סה\'כ לקוחות: ' + adminSelectedClient.total_customers"></p>
+            <h2 x-text="adminSelectedClient.org.name"></h2>
+            <p class="muted" style="margin-bottom:20px;" x-text="'סה\'כ לקוחות (כל הסניפים): ' + adminSelectedClient.total_customers"></p>
+            <h3 style="font-size:15px; margin-bottom:10px;">סניפים</h3>
+            <table style="margin-bottom:24px;">
+              <thead><tr><th>שם</th><th>כתובת</th></tr></thead>
+              <tbody>
+                <template x-for="b in adminSelectedClient.branches" :key="b.id">
+                  <tr><td x-text="b.name"></td><td x-text="b.slug"></td></tr>
+                </template>
+              </tbody>
+            </table>
+            <h3 style="font-size:15px; margin-bottom:10px;">כרטיסים (משותפים לכל הסניפים)</h3>
             <table>
               <thead><tr><th>כרטיס</th><th>סוג</th><th>סטטוס</th></tr></thead>
               <tbody>
