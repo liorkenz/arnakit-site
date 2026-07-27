@@ -1,0 +1,15 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# The anon key is meant to be public (protected by RLS, not secrecy) — same
+# value already embedded client-side in index.html, so committing it here is
+# no different in exposure than what's already public on the live site.
+[build.environment]
+  VITE_SUPABASE_URL = "https://swtdgghjpcvyhrdwggae.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3dGRnZ2hqcGN2eWhyZHdnZ2FlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxOTEzMDgsImV4cCI6MjA5OTc2NzMwOH0.7vB2oEtLtpr3fLdKDLpbpQt3DsidJIgG06MhZih6luM"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
