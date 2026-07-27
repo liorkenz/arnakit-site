@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "storeCard": {
+    "headerFields": [],
+    "primaryFields": [],
+    "secondaryFields": [],
+    "auxiliaryFields": [],
+    "backFields": [
+      { "key": "terms", "label": "תנאי שימוש", "value": "כרטיס זה אינו ניתן להעברה. הצגה בקופה בעת התשלום." }
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+project_id = "arnakit"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = false
+enable_confirmations = false
+
+[functions]
+[functions.enroll]
+verify_jwt = false
+[functions.enroll-info]
+verify_jwt = false
+[functions.apple-passkit-web-service]
+verify_jwt = false
+[functions.unsubscribe]
+verify_jwt = false
+[functions.cardcom-webhook]
+verify_jwt = false
+[functions.waitlist-submit]
+verify_jwt = false
+[functions.billing-cron]
+verify_jwt = false
+[functions.process-pass-update-queue]
+verify_jwt = false
+[functions.send-campaign]
+verify_jwt = true
+[functions.create-checkout-session]
+verify_jwt = true
