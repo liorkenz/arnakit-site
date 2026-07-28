@@ -1,5 +1,6 @@
 import Alpine from 'alpinejs';
 import QRCode from 'qrcode';
+import jsQR from 'jsqr';
 import { supabase } from './lib/supabaseClient.js';
 import './style.css';
 
@@ -46,6 +47,16 @@ window.app = function app() {
     preAdminView: 'dashboard',
     purchaseAmounts: {},
     redeemAmounts: {},
+    scannerActive: false,
+    scannerStream: null,
+    scannerLoopId: null,
+    scannedCustomer: null,
+    scanError: '',
+    scanPurchaseAmount: '',
+    scanRedeemAmount: '',
+    myRole: null,
+    teamMembers: [],
+    inviteEmail: '',
 
     get canOnboard() {
       return this.onboarding.orgName && this.onboarding.businessName && this.onboarding.slug && this.onboarding.acceptedTerms;
@@ -61,6 +72,9 @@ window.app = function app() {
     },
     get canAddBranch() {
       return this.isChainPlan;
+    },
+    get isOwner() {
+      return this.myRole === 'owner';
     },
     get messagesRemaining() {
       return this.isBasicPlan ? Math.max(0, 4 - this.campaignsSentThisMonth) : null;
@@ -155,7 +169,7 @@ window.app = function app() {
 
       const { data: memberships, error } = await supabase
         .from('org_members')
-        .select('org_id')
+        .select('org_id, role')
         .eq('user_id', this.session.user.id)
         .limit(1);
 
@@ -167,6 +181,7 @@ window.app = function app() {
       }
 
       this.org = { id: memberships[0].org_id };
+      this.myRole = memberships[0].role;
 
       const { data: businesses } = await supabase
         .from('businesses')
@@ -216,7 +231,38 @@ window.app = function app() {
       this.subscription = data || null;
     },
 
+    async loadTeam() {
+      const { data } = await supabase
+        .from('org_members')
+        .select('user_id, email, role')
+        .eq('org_id', this.org.id)
+        .order('role', { ascending: true });
+      this.teamMembers = data || [];
+    },
+
+    async inviteStaffMember() {
+      if (!this.inviteEmail) return;
+      this.sending = true;
+      this.statusMsg = '';
+      const { error } = await supabase.functions.invoke('invite-staff', {
+        body: { org_id: this.org.id, email: this.inviteEmail },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.inviteEmail = '';
+      this.statusMsg = 'הזמנה נשלחה.';
+      await this.loadTeam();
+    },
+
+    async removeStaffMember(userId) {
+      if (!confirm('להסיר את העובד/ת הזו מהצוות?')) return;
+      const { error } = await supabase.from('org_members').delete().eq('org_id', this.org.id).eq('user_id', userId);
+      if (error) { this.statusMsg = error.message; return; }
+      await this.loadTeam();
+    },
+
     async cancelSubscription() {
+      if (!this.isOwner) return;
       if (!confirm('לבטל את המנוי? כרטיס הנאמנות שלכם יופסק וללקוחות חדשים לא יוכלו להירשם עוד.')) return;
       this.sending = true;
       this.statusMsg = '';
@@ -367,6 +413,130 @@ window.app = function app() {
         .eq('org_id', this.org.id)
         .order('last_visit_at', { ascending: false, nullsFirst: false });
       this.customers = data || [];
+    },
+
+    // Camera scanner: reads the barcode already printed on the customer's
+    // issued wallet pass (encodes pass_serial_number) — this is the fast,
+    // no-typing way for staff to identify a returning customer, instead of
+    // hunting for them in the customer list every visit.
+    async startScanner() {
+      this.scanError = '';
+      this.scannedCustomer = null;
+      try {
+        this.scannerStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+        });
+      } catch (err) {
+        this.scanError = 'לא ניתן לגשת למצלמה — ודאו שנתתם הרשאה בדפדפן.';
+        return;
+      }
+      this.scannerActive = true;
+      const video = this.$refs.scannerVideo;
+      video.srcObject = this.scannerStream;
+      await video.play();
+      const canvas = this.$refs.scannerCanvas;
+      const ctx = canvas.getContext('2d');
+
+      const tick = () => {
+        if (!this.scannerActive) return;
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+          if (code && code.data) {
+            this.handleScanResult(code.data);
+            return;
+          }
+        }
+        this.scannerLoopId = requestAnimationFrame(tick);
+      };
+      this.scannerLoopId = requestAnimationFrame(tick);
+    },
+
+    stopScanner() {
+      this.scannerActive = false;
+      if (this.scannerLoopId) cancelAnimationFrame(this.scannerLoopId);
+      if (this.scannerStream) this.scannerStream.getTracks().forEach((t) => t.stop());
+      this.scannerStream = null;
+    },
+
+    async handleScanResult(serialNumber) {
+      this.stopScanner();
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('org_id', this.org.id)
+        .eq('pass_serial_number', serialNumber)
+        .maybeSingle();
+
+      if (error || !data) {
+        this.scanError = 'הכרטיס לא זוהה — ודאו שזה כרטיס של הרשת שלכם.';
+        return;
+      }
+      this.scannedCustomer = data;
+    },
+
+    rescan() {
+      this.scannedCustomer = null;
+      this.startScanner();
+    },
+
+    async scannedAddStamp() {
+      await this.addStamp(this.scannedCustomer.id);
+      const { data } = await supabase.from('customers').select('*').eq('id', this.scannedCustomer.id).maybeSingle();
+      this.scannedCustomer = data;
+    },
+
+    async scannedRecordPurchase() {
+      const amount = Number(this.scanPurchaseAmount);
+      if (!amount || amount <= 0) return;
+      const rate = this.card.credit_earn_rate_percent ?? 10;
+      const earnedAgorot = Math.round(amount * (rate / 100) * 100);
+      const { error } = await supabase.from('stamp_events').insert({
+        customer_id: this.scannedCustomer.id,
+        org_id: this.org.id,
+        delta: earnedAgorot,
+        type: 'credit',
+        created_by: this.session.user.id,
+        note: `רכישה בסך ₪${amount}`,
+      });
+      if (error) { this.statusMsg = error.message; return; }
+      this.scanPurchaseAmount = '';
+      const { data } = await supabase.from('customers').select('*').eq('id', this.scannedCustomer.id).maybeSingle();
+      this.scannedCustomer = data;
+    },
+
+    async scannedRedeemCredit() {
+      const amount = Number(this.scanRedeemAmount);
+      if (!amount || amount <= 0) return;
+      const { error } = await supabase.from('stamp_events').insert({
+        customer_id: this.scannedCustomer.id,
+        org_id: this.org.id,
+        delta: -Math.round(amount * 100),
+        type: 'redeem',
+        created_by: this.session.user.id,
+        note: `מימוש ₪${amount}`,
+      });
+      if (error) { this.statusMsg = error.message; return; }
+      this.scanRedeemAmount = '';
+      const { data } = await supabase.from('customers').select('*').eq('id', this.scannedCustomer.id).maybeSingle();
+      this.scannedCustomer = data;
+    },
+
+    async scannedRedeemStampReward() {
+      const { error } = await supabase.from('stamp_events').insert({
+        customer_id: this.scannedCustomer.id,
+        org_id: this.org.id,
+        delta: -this.scannedCustomer.stamps_count,
+        type: 'reset',
+        created_by: this.session.user.id,
+        note: 'מימוש פרס',
+      });
+      if (error) { this.statusMsg = error.message; return; }
+      const { data } = await supabase.from('customers').select('*').eq('id', this.scannedCustomer.id).maybeSingle();
+      this.scannedCustomer = data;
     },
 
     async addStamp(customerId) {

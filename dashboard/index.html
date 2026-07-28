@@ -126,12 +126,72 @@
 
       <main id="main" class="wrap">
         <div class="tabs" role="tablist" aria-label="אזורי לוח הבקרה">
+          <button class="tab-btn" role="tab" :aria-selected="activeTab==='scan'" :class="{active: activeTab==='scan'}" @click="activeTab='scan'">סריקה</button>
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='card'" :class="{active: activeTab==='card'}" @click="activeTab='card'">הכרטיס</button>
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='customers'" :class="{active: activeTab==='customers'}" @click="activeTab='customers'; loadCustomers()">לקוחות</button>
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='campaigns'" :class="{active: activeTab==='campaigns'}" @click="activeTab='campaigns'">קמפיינים</button>
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='billing'" :class="{active: activeTab==='billing'}" @click="activeTab='billing'; loadSubscription()">מנוי וחיוב</button>
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='security'" :class="{active: activeTab==='security'}" @click="activeTab='security'; loadMfaFactors()">אבטחה</button>
+          <template x-if="isOwner">
+            <button class="tab-btn" role="tab" :aria-selected="activeTab==='team'" :class="{active: activeTab==='team'}" @click="activeTab='team'; loadTeam()">צוות</button>
+          </template>
         </div>
+
+        <!-- SCAN -->
+        <template x-if="activeTab === 'scan'">
+          <div class="panel">
+            <h2>סריקת כרטיס לקוח</h2>
+            <p class="muted" style="margin-bottom:16px;">בקשו מהלקוח להציג את הכרטיס בארנק שלו (הקוד בתחתית הכרטיס), וסרקו אותו במצלמה — לא צריך לחפש אותו ברשימה.</p>
+
+            <template x-if="!scannerActive && !scannedCustomer">
+              <button @click="startScanner()">הפעילו מצלמה</button>
+            </template>
+
+            <template x-if="scanError">
+              <p class="status-msg error" x-text="scanError"></p>
+            </template>
+
+            <div x-show="scannerActive" style="position:relative; max-width:360px;">
+              <video x-ref="scannerVideo" playsinline muted style="width:100%; border-radius:16px;"></video>
+              <canvas x-ref="scannerCanvas" style="display:none;"></canvas>
+              <button class="ghost" @click="stopScanner()" style="margin-top:10px; width:100%;">ביטול</button>
+            </div>
+
+            <template x-if="scannedCustomer">
+              <div class="panel" style="margin-top:16px; background:var(--ink-3);">
+                <h3 style="margin-bottom:10px;" x-text="scannedCustomer.phone || scannedCustomer.email || scannedCustomer.pass_serial_number.slice(0,8)"></h3>
+
+                <template x-if="card.reward_type === 'stamps'">
+                  <div>
+                    <p style="margin-bottom:14px;" x-text="'תווים: ' + scannedCustomer.stamps_count + ' / ' + card.target_count"></p>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <button @click="scannedAddStamp()">+ תו</button>
+                      <template x-if="scannedCustomer.stamps_count >= card.target_count">
+                        <button class="ghost" @click="scannedRedeemStampReward()">פדה פרס</button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <template x-if="card.reward_type === 'credit'">
+                  <div>
+                    <p style="margin-bottom:14px;" x-text="'קרדיט: ₪' + (scannedCustomer.credit_balance_agorot/100).toFixed(0)"></p>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                      <input type="number" x-model="scanPurchaseAmount" placeholder="₪ סכום הקנייה" style="width:130px; margin:0;" min="0">
+                      <button @click="scannedRecordPurchase()">הוסף</button>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <input type="number" x-model="scanRedeemAmount" placeholder="₪ מימוש" style="width:130px; margin:0;" min="0">
+                      <button class="ghost" @click="scannedRedeemCredit()">מימוש</button>
+                    </div>
+                  </div>
+                </template>
+
+                <button class="ghost" @click="rescan()" style="margin-top:16px; width:100%;">סריקת לקוח הבא</button>
+              </div>
+            </template>
+          </div>
+        </template>
 
         <!-- CARD CONFIG -->
         <template x-if="activeTab === 'card'">
@@ -293,13 +353,45 @@
                   <span class="badge" :class="subscription.status" x-text="subscription.status"></span>
                 </p>
                 <p class="muted" x-text="'מחיר: ₪' + (subscription.price_agorot/100).toFixed(0) + ' לחודש'"></p>
-                <template x-if="subscription.status === 'active'">
+                <template x-if="subscription.status === 'active' && isOwner">
                   <button class="ghost" @click="cancelSubscription()" :disabled="sending" style="margin-top:14px; font-size:13px;">ביטול המנוי</button>
                 </template>
                 <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
               </div>
             </template>
             <template x-if="!subscription"><p class="muted">אין עדיין מנוי פעיל.</p></template>
+          </div>
+        </template>
+
+        <!-- TEAM -->
+        <template x-if="activeTab === 'team' && isOwner">
+          <div class="panel">
+            <h2>הצוות שלכם</h2>
+            <p class="muted">הזמינו כל עובד/ת עם המייל שלהם — כל אחד יתחבר מהטלפון/הטאבלט שלו עם קישור קסם משלו, ויוכל לסרוק לקוחות ולנהל את הכרטיס בעצמו.</p>
+            <div style="display:flex; gap:8px; margin:14px 0; flex-wrap:wrap;">
+              <label for="inviteEmail" class="sr-only">מייל העובד/ת</label>
+              <input type="email" id="inviteEmail" x-model="inviteEmail" placeholder="email@example.com" style="flex:1; min-width:220px;">
+              <button @click="inviteStaffMember()" :disabled="!inviteEmail || sending">
+                <span x-text="sending ? 'שולח…' : 'הזמנה'"></span>
+              </button>
+            </div>
+            <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
+            <table>
+              <thead><tr><th>מייל</th><th>תפקיד</th><th></th></tr></thead>
+              <tbody>
+                <template x-for="m in teamMembers" :key="m.user_id">
+                  <tr>
+                    <td x-text="m.email"></td>
+                    <td><span class="badge" x-text="m.role === 'owner' ? 'בעלים' : 'עובד/ת'"></span></td>
+                    <td>
+                      <template x-if="m.role === 'staff'">
+                        <button class="ghost" @click="removeStaffMember(m.user_id)" style="font-size:13px;">הסרה</button>
+                      </template>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
           </div>
         </template>
 
