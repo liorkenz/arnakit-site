@@ -24,13 +24,31 @@
       <div class="card-box">
         <h1>ארנקית</h1>
         <p class="muted">לוח הבקרה לבעלי עסקים</p>
-        <template x-if="!magicLinkSent">
+        <template x-if="loginMode === 'magic' && !magicLinkSent">
           <div>
             <label for="loginEmail">אימייל</label>
             <input type="email" id="loginEmail" x-model="email" placeholder="you@business.co.il">
             <button @click="sendMagicLink()" :disabled="!email || sending" style="width:100%;">
               <span x-text="sending ? 'שולח…' : 'שלחו לי קישור כניסה'"></span>
             </button>
+            <p class="muted" style="margin-top:12px; font-size:13px; text-align:center;">
+              עובד/ת עם אימייל וסיסמה מהמעסיק?
+              <a href="#" @click.prevent="loginMode = 'password'; authError = ''">התחברות עם סיסמה</a>
+            </p>
+          </div>
+        </template>
+        <template x-if="loginMode === 'password'">
+          <div>
+            <label for="loginEmailPw">אימייל</label>
+            <input type="email" id="loginEmailPw" x-model="email" placeholder="you@business.co.il">
+            <label for="loginPassword">סיסמה</label>
+            <input type="password" id="loginPassword" x-model="password" placeholder="••••••••" @keyup.enter="signInWithPassword()">
+            <button @click="signInWithPassword()" :disabled="!email || !password || sending" style="width:100%;">
+              <span x-text="sending ? 'מתחבר/ת…' : 'התחברות'"></span>
+            </button>
+            <p class="muted" style="margin-top:12px; font-size:13px; text-align:center;">
+              <a href="#" @click.prevent="loginMode = 'magic'; authError = ''">חזרה לקישור כניסה במייל</a>
+            </p>
           </div>
         </template>
         <template x-if="magicLinkSent">
@@ -367,14 +385,26 @@
         <template x-if="activeTab === 'team' && isOwner">
           <div class="panel">
             <h2>הצוות שלכם</h2>
-            <p class="muted">הזמינו כל עובד/ת עם המייל שלהם — כל אחד יתחבר מהטלפון/הטאבלט שלו עם קישור קסם משלו, ויוכל לסרוק לקוחות ולנהל את הכרטיס בעצמו.</p>
+            <p class="muted">בחרו סיסמה לכל עובד/ת, ושלחו לו/לה בעצמכם (בוואטסאפ למשל) את קישור לוח הבקרה + האימייל + הסיסמה. הם יתחברו עם זה מהטלפון או הטאבלט שלהם — בלי צורך לגשת למייל שלהם.</p>
             <div style="display:flex; gap:8px; margin:14px 0; flex-wrap:wrap;">
               <label for="inviteEmail" class="sr-only">מייל העובד/ת</label>
-              <input type="email" id="inviteEmail" x-model="inviteEmail" placeholder="email@example.com" style="flex:1; min-width:220px;">
-              <button @click="inviteStaffMember()" :disabled="!inviteEmail || sending">
-                <span x-text="sending ? 'שולח…' : 'הזמנה'"></span>
+              <input type="email" id="inviteEmail" x-model="inviteEmail" placeholder="email@example.com" style="flex:1; min-width:180px;">
+              <label for="invitePassword" class="sr-only">סיסמה לעובד/ת</label>
+              <input type="text" id="invitePassword" x-model="invitePassword" placeholder="סיסמה (לפחות 6 תווים)" style="flex:1; min-width:180px;">
+              <button @click="inviteStaffMember()" :disabled="!inviteEmail || invitePassword.length < 6 || sending">
+                <span x-text="sending ? 'יוצר…' : 'הוספת עובד/ת'"></span>
               </button>
             </div>
+            <template x-if="inviteResult">
+              <div class="status-msg" style="margin-bottom:14px;">
+                <template x-if="inviteResult.password">
+                  <p>נוצר בהצלחה. שלחו לעובד/ת: קישור — <span x-text="window.location.origin"></span>, אימייל — <strong x-text="inviteResult.email"></strong>, סיסמה — <strong x-text="inviteResult.password"></strong></p>
+                </template>
+                <template x-if="!inviteResult.password">
+                  <p>לאימייל הזה כבר יש חשבון קיים — נוסף/ה לצוות, אך ישתמש/תשתמש בסיסמה שכבר יש לו/לה.</p>
+                </template>
+              </div>
+            </template>
             <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
             <table>
               <thead><tr><th>מייל</th><th>תפקיד</th><th></th></tr></thead>

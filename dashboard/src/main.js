@@ -13,6 +13,8 @@ window.app = function app() {
     view: 'loading',
     session: null,
     email: '',
+    password: '',
+    loginMode: 'magic',
     magicLinkSent: false,
     sending: false,
     authError: '',
@@ -57,6 +59,8 @@ window.app = function app() {
     myRole: null,
     teamMembers: [],
     inviteEmail: '',
+    invitePassword: '',
+    inviteResult: null,
 
     get canOnboard() {
       return this.onboarding.orgName && this.onboarding.businessName && this.onboarding.slug && this.onboarding.acceptedTerms;
@@ -139,6 +143,18 @@ window.app = function app() {
       this.sending = false;
       if (error) { this.authError = error.message; return; }
       this.magicLinkSent = true;
+    },
+
+    async signInWithPassword() {
+      this.sending = true;
+      this.authError = '';
+      const { error } = await supabase.auth.signInWithPassword({
+        email: this.email,
+        password: this.password,
+      });
+      this.sending = false;
+      if (error) { this.authError = 'אימייל או סיסמה שגויים.'; return; }
+      this.password = '';
     },
 
     async signOut() {
@@ -241,16 +257,22 @@ window.app = function app() {
     },
 
     async inviteStaffMember() {
-      if (!this.inviteEmail) return;
+      if (!this.inviteEmail || this.invitePassword.length < 6) return;
       this.sending = true;
       this.statusMsg = '';
-      const { error } = await supabase.functions.invoke('invite-staff', {
-        body: { org_id: this.org.id, email: this.inviteEmail },
+      this.inviteResult = null;
+      const { data, error } = await supabase.functions.invoke('invite-staff', {
+        body: { org_id: this.org.id, email: this.inviteEmail, password: this.invitePassword },
       });
       this.sending = false;
       if (error) { this.statusMsg = error.message; return; }
+      this.inviteResult = {
+        email: this.inviteEmail,
+        password: data?.password_set ? this.invitePassword : null,
+        alreadyExisted: !data?.password_set,
+      };
       this.inviteEmail = '';
-      this.statusMsg = 'הזמנה נשלחה.';
+      this.invitePassword = '';
       await this.loadTeam();
     },
 
