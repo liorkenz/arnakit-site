@@ -282,6 +282,7 @@
             <p class="muted" x-text="businesses.length > 1 ? 'הדפיסו כפוסטר בסניף ' + business.name + ' — הלקוח סורק וזה נכנס לארנק שלו, ותקף בכל סניפי הרשת.' : 'הדפיסו כפוסטר או שתפו — הלקוח סורק וזה נכנס לארנק שלו.'"></p>
             <div class="qr-box" x-show="qrDataUrl"><img :src="qrDataUrl" width="160" height="160"></div>
             <p class="muted mono" x-text="enrollUrl" style="margin-top:10px; word-break:break-all;"></p>
+            <button class="ghost" @click="printPoster()" :disabled="!qrDataUrl" style="margin-top:14px; font-size:13px;">הדפסת פוסטר A4</button>
 
             <template x-if="canAddBranch">
               <div>

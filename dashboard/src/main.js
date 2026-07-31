@@ -715,6 +715,48 @@ window.app = function app() {
       await this.loadMfaFactors();
     },
 
+    printPoster() {
+      if (!this.qrDataUrl) return;
+      const c1 = this.card?.color_c1 || '#1c2b3a';
+      const c2 = this.card?.color_c2 || '#0f766e';
+      const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const title = esc(this.business?.name || this.card?.name || 'ארנקית');
+      const reward = esc(this.card?.reward_description || '');
+      const win = window.open('', '_blank', 'width=850,height=1200');
+      if (!win) { this.statusMsg = 'יש לאפשר חלונות קופצים כדי להדפיס.'; return; }
+      win.document.write(`<!doctype html>
+<html dir="rtl" lang="he"><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  @page { size: A4; margin: 0; }
+  body { margin:0; font-family: Rubik, Arial, sans-serif; }
+  .poster { width:100vw; height:100vh; box-sizing:border-box; padding:60px 40px;
+    background: linear-gradient(160deg, ${c1}, ${c2}); color:#fff; text-align:center;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .poster h1 { font-size:46px; margin:0 0 8px; }
+  .poster .sub { font-size:24px; opacity:0.9; margin-bottom:40px; }
+  .poster .qr { background:#fff; padding:24px; border-radius:24px; }
+  .poster .qr img { width:340px; height:340px; display:block; }
+  .poster .cta { font-size:30px; font-weight:700; margin-top:36px; }
+  .poster .reward { font-size:20px; opacity:0.9; margin-top:10px; }
+  .poster .brand { position:absolute; bottom:30px; font-size:14px; opacity:0.6; }
+  @media print { .poster { padding:40px; } }
+</style></head>
+<body>
+  <div class="poster">
+    <h1>${title}</h1>
+    <p class="sub">מועדון הלקוחות שלנו</p>
+    <div class="qr"><img src="${this.qrDataUrl}"></div>
+    <p class="cta">סרקו והצטרפו בשניות</p>
+    ${reward ? `<p class="reward">${reward}</p>` : ''}
+    <p class="brand">מופעל ע״י Arnakit</p>
+  </div>
+  <script>
+    window.onload = () => { window.print(); };
+  </script>
+</body></html>`);
+      win.document.close();
+    },
+
     buildEnrollUrl() {
       if (!this.business) return;
       const base = import.meta.env.VITE_SUPABASE_URL.replace('.supabase.co', '.functions.supabase.co');
