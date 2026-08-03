@@ -67,6 +67,9 @@
       <div class="card-box">
         <h1>נעים להכיר</h1>
         <p class="muted">בואו נקים את העסק הראשון שלכם</p>
+        <template x-if="chainInviteToken">
+          <p class="status-msg">נרשמתם דרך קישור רשת — לאחר ההקמה תועברו ישר להזנת אמצעי תשלום במחיר שסוכם.</p>
+        </template>
         <label for="orgName">שם החברה / המותג</label>
         <input type="text" id="orgName" x-model="onboarding.orgName" placeholder="קפה הפינה בע״מ">
         <label for="businessName">שם הסניף</label>
@@ -150,7 +153,7 @@
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='campaigns'" :class="{active: activeTab==='campaigns'}" @click="activeTab='campaigns'">קמפיינים</button>
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='billing'" :class="{active: activeTab==='billing'}" @click="activeTab='billing'; loadSubscription()">מנוי וחיוב</button>
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='security'" :class="{active: activeTab==='security'}" @click="activeTab='security'; loadMfaFactors()">אבטחה</button>
-          <template x-if="isOwner">
+          <template x-if="canManageTeam">
             <button class="tab-btn" role="tab" :aria-selected="activeTab==='team'" :class="{active: activeTab==='team'}" @click="activeTab='team'; loadTeam()">צוות</button>
           </template>
         </div>
@@ -291,7 +294,15 @@
                 <input type="text" id="newBranchName" x-model="newBranchName" placeholder="קפה הפינה — רמת אביב">
                 <label for="newBranchSlug">כתובת ציבורית (אנגלית, ללא רווחים)</label>
                 <input type="text" id="newBranchSlug" x-model="newBranchSlug" placeholder="cafe-hapina-ramat-aviv">
-                <button @click="createBranch()" :disabled="!newBranchName || !newBranchSlug || sending">הוספת סניף</button>
+                <label for="newBranchManagerEmail">מייל מנהל/ת הסניף (לא חובה)</label>
+                <input type="email" id="newBranchManagerEmail" x-model="newBranchManagerEmail" placeholder="manager@example.com">
+                <template x-if="newBranchManagerEmail">
+                  <div>
+                    <label for="newBranchManagerPassword">סיסמה למנהל/ת הסניף</label>
+                    <input type="text" id="newBranchManagerPassword" x-model="newBranchManagerPassword" placeholder="לפחות 6 תווים">
+                  </div>
+                </template>
+                <button @click="createBranch()" :disabled="!newBranchName || !newBranchSlug || (newBranchManagerEmail && newBranchManagerPassword.length < 6) || sending">הוספת סניף</button>
               </div>
             </template>
           </div>
@@ -383,23 +394,38 @@
         </template>
 
         <!-- TEAM -->
-        <template x-if="activeTab === 'team' && isOwner">
+        <template x-if="activeTab === 'team' && canManageTeam">
           <div class="panel">
             <h2>הצוות שלכם</h2>
-            <p class="muted">בחרו סיסמה לכל עובד/ת, ושלחו לו/לה בעצמכם (בוואטסאפ למשל) את קישור לוח הבקרה + האימייל + הסיסמה. הם יתחברו עם זה מהטלפון או הטאבלט שלהם — בלי צורך לגשת למייל שלהם.</p>
+            <p class="muted" x-show="isOwner">בחרו סיסמה לכל איש צוות, ושלחו לו/לה בעצמכם (בוואטסאפ למשל) את קישור לוח הבקרה + האימייל + הסיסמה. הם יתחברו עם זה מהטלפון או הטאבלט שלהם — בלי צורך לגשת למייל שלהם. מנהל/ת סניף יכול/ה להוסיף ולהסיר לבד את העובדים של הסניף שלו/שלה.</p>
+            <p class="muted" x-show="isManager">בחרו סיסמה לכל עובד/ת בסניף שלכם, ושלחו לו/לה בעצמכם את קישור לוח הבקרה + האימייל + הסיסמה.</p>
             <div style="display:flex; gap:8px; margin:14px 0; flex-wrap:wrap;">
-              <label for="inviteEmail" class="sr-only">מייל העובד/ת</label>
+              <label for="inviteEmail" class="sr-only">מייל</label>
               <input type="email" id="inviteEmail" x-model="inviteEmail" placeholder="email@example.com" style="flex:1; min-width:180px;">
-              <label for="invitePassword" class="sr-only">סיסמה לעובד/ת</label>
+              <label for="invitePassword" class="sr-only">סיסמה</label>
               <input type="text" id="invitePassword" x-model="invitePassword" placeholder="סיסמה (לפחות 6 תווים)" style="flex:1; min-width:180px;">
-              <button @click="inviteStaffMember()" :disabled="!inviteEmail || invitePassword.length < 6 || sending">
-                <span x-text="sending ? 'יוצר…' : 'הוספת עובד/ת'"></span>
+              <template x-if="isOwner">
+                <select x-model="inviteRole" style="flex:0 0 auto;">
+                  <option value="staff">עובד/ת</option>
+                  <option value="manager">מנהל/ת סניף</option>
+                </select>
+              </template>
+              <template x-if="isOwner && inviteRole === 'manager'">
+                <select x-model="inviteBusinessId" style="flex:0 0 auto;">
+                  <option value="">בחרו סניף</option>
+                  <template x-for="b in businesses" :key="b.id">
+                    <option :value="b.id" x-text="b.name"></option>
+                  </template>
+                </select>
+              </template>
+              <button @click="inviteStaffMember()" :disabled="!inviteEmail || invitePassword.length < 6 || (isOwner && inviteRole === 'manager' && !inviteBusinessId) || sending">
+                <span x-text="sending ? 'יוצר…' : 'הוספה'"></span>
               </button>
             </div>
             <template x-if="inviteResult">
               <div class="status-msg" style="margin-bottom:14px;">
                 <template x-if="inviteResult.password">
-                  <p>נוצר בהצלחה. שלחו לעובד/ת: קישור — <span x-text="window.location.origin"></span>, אימייל — <strong x-text="inviteResult.email"></strong>, סיסמה — <strong x-text="inviteResult.password"></strong></p>
+                  <p>נוצר בהצלחה. שלחו: קישור — <span x-text="window.location.origin"></span>, אימייל — <strong x-text="inviteResult.email"></strong>, סיסמה — <strong x-text="inviteResult.password"></strong></p>
                 </template>
                 <template x-if="!inviteResult.password">
                   <p>לאימייל הזה כבר יש חשבון קיים — נוסף/ה לצוות, אך ישתמש/תשתמש בסיסמה שכבר יש לו/לה.</p>
@@ -408,14 +434,15 @@
             </template>
             <template x-if="statusMsg"><p class="status-msg" x-text="statusMsg"></p></template>
             <table>
-              <thead><tr><th>מייל</th><th>תפקיד</th><th></th></tr></thead>
+              <thead><tr><th>מייל</th><th>תפקיד</th><th>סניף</th><th></th></tr></thead>
               <tbody>
                 <template x-for="m in teamMembers" :key="m.user_id">
                   <tr>
                     <td x-text="m.email"></td>
-                    <td><span class="badge" x-text="m.role === 'owner' ? 'בעלים' : 'עובד/ת'"></span></td>
+                    <td><span class="badge" x-text="m.role === 'owner' ? 'בעלים' : (m.role === 'manager' ? 'מנהל/ת סניף' : 'עובד/ת')"></span></td>
+                    <td x-text="branchName(m.business_id)"></td>
                     <td>
-                      <template x-if="m.role === 'staff'">
+                      <template x-if="m.role !== 'owner' && (isOwner || (isManager && m.role === 'staff'))">
                         <button class="ghost" @click="removeStaffMember(m.user_id)" style="font-size:13px;">הסרה</button>
                       </template>
                     </td>
@@ -472,6 +499,20 @@
       </div>
       <main class="wrap">
         <template x-if="!adminSelectedClient">
+          <div>
+          <div class="panel" style="margin-bottom:24px;">
+            <h2>יצירת קישור הרשמה לרשת במחיר קבוע</h2>
+            <p class="muted">קבעו מחיר חודשי (₪) לרשת שסוכם איתה ישירות, וקבלו קישור לשלוח לבעלים — ההרשמה שלו/שלה דרך הקישור תיעול ישר לתוכנית "רשת" במחיר הזה, ותוביל אותו/ה ישר להזנת כרטיס אשראי בקארדקום.</p>
+            <label for="adminChainPrice">מחיר חודשי (₪)</label>
+            <input type="number" id="adminChainPrice" x-model="adminChainPrice" placeholder="1500" style="max-width:200px;">
+            <button @click="adminGenerateChainInviteLink()" :disabled="!adminChainPrice || sending">
+              <span x-text="sending ? 'יוצר…' : 'יצירת קישור'"></span>
+            </button>
+            <template x-if="adminChainInviteLink">
+              <p class="status-msg mono" style="word-break:break-all; margin-top:12px;" x-text="adminChainInviteLink"></p>
+            </template>
+          </div>
+
           <div class="panel">
             <h2>כל הלקוחות (<span x-text="adminClients.length"></span>)</h2>
             <table>
@@ -492,6 +533,7 @@
               </tbody>
             </table>
           </div>
+          </div>
         </template>
 
         <template x-if="adminSelectedClient">
@@ -499,6 +541,17 @@
             <button class="ghost" @click="adminSelectedClient = null" style="margin-bottom:16px; font-size:13px;">← חזרה לרשימה</button>
             <h2 x-text="adminSelectedClient.org.name"></h2>
             <p class="muted" style="margin-bottom:20px;" x-text="'סה\'כ לקוחות (כל הסניפים): ' + adminSelectedClient.total_customers"></p>
+
+            <template x-if="adminSelectedClient.subscription?.plan_tier === 'chain'">
+              <div style="margin-bottom:24px;">
+                <h3 style="font-size:15px; margin-bottom:10px;">מחיר קבוע לרשת</h3>
+                <p class="muted">ריקו את השדה כדי לחזור למחיר המחושב אוטומטית (5 סניפים בתשלום, ה-6 חינם).</p>
+                <label for="adminChainPriceEdit" class="sr-only">מחיר חודשי (₪)</label>
+                <input type="number" id="adminChainPriceEdit" x-model="adminChainPrice" placeholder="ללא מחיר קבוע" style="max-width:200px;">
+                <button @click="adminSaveChainPrice()" :disabled="sending">שמירה</button>
+              </div>
+            </template>
+
             <h3 style="font-size:15px; margin-bottom:10px;">סניפים</h3>
             <table style="margin-bottom:24px;">
               <thead><tr><th>שם</th><th>כתובת</th></tr></thead>

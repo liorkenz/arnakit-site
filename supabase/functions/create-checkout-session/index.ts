@@ -35,9 +35,21 @@ Deno.serve(async (req) => {
 
   let amountAgorot: number;
   if (plan_tier === 'chain') {
-    const { data: price, error } = await supabaseAdmin.rpc('fn_chain_price', { p_org_id: org_id });
-    if (error) return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
-    amountAgorot = price as number;
+    // A platform-admin-negotiated fixed price always wins over the
+    // auto-computed 5-billed/6th-free price, once one has been set.
+    const { data: sub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('custom_price_agorot')
+      .eq('org_id', org_id)
+      .maybeSingle();
+
+    if (sub?.custom_price_agorot) {
+      amountAgorot = sub.custom_price_agorot;
+    } else {
+      const { data: price, error } = await supabaseAdmin.rpc('fn_chain_price', { p_org_id: org_id });
+      if (error) return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
+      amountAgorot = price as number;
+    }
   } else {
     amountAgorot = FIXED_PRICES_AGOROT[plan_tier];
     if (!amountAgorot) return Response.json({ error: 'invalid plan_tier' }, { status: 400, headers: corsHeaders });

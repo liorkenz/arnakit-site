@@ -57,10 +57,18 @@ window.app = function app() {
     scanPurchaseAmount: '',
     scanRedeemAmount: '',
     myRole: null,
+    myBusinessId: null,
     teamMembers: [],
     inviteEmail: '',
     invitePassword: '',
+    inviteRole: 'staff',
+    inviteBusinessId: '',
     inviteResult: null,
+    chainInviteToken: null,
+    newBranchManagerEmail: '',
+    newBranchManagerPassword: '',
+    adminChainPrice: '',
+    adminChainInviteLink: '',
 
     get canOnboard() {
       return this.onboarding.orgName && this.onboarding.businessName && this.onboarding.slug && this.onboarding.acceptedTerms;
@@ -80,11 +88,30 @@ window.app = function app() {
     get isOwner() {
       return this.myRole === 'owner';
     },
+    get isManager() {
+      return this.myRole === 'manager';
+    },
+    get canManageTeam() {
+      return this.isOwner || this.isManager;
+    },
     get messagesRemaining() {
       return this.isBasicPlan ? Math.max(0, 4 - this.campaignsSentThisMonth) : null;
     },
 
     async init() {
+      // A magic-link email round-trip often opens in a fresh tab, losing any
+      // in-memory state — persisted to localStorage so the chain-invite token
+      // survives from "opened the link" through "clicked the magic-link email".
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('chain_invite');
+      if (token) {
+        localStorage.setItem('arnakit_chain_invite', token);
+        params.delete('chain_invite');
+        const rest = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (rest ? `?${rest}` : ''));
+      }
+      this.chainInviteToken = token || localStorage.getItem('arnakit_chain_invite');
+
       const { data: { session } } = await supabase.auth.getSession();
       this.session = session;
       supabase.auth.onAuthStateChange((_event, session) => {
@@ -131,14 +158,45 @@ window.app = function app() {
       this.sending = false;
       if (error) { this.statusMsg = error.message; return; }
       this.adminSelectedClient = data;
+      this.adminChainPrice = data.subscription?.custom_price_agorot ? String(data.subscription.custom_price_agorot / 100) : '';
+    },
+
+    async adminSaveChainPrice() {
+      this.sending = true;
+      this.statusMsg = '';
+      const price = this.adminChainPrice ? Math.round(parseFloat(this.adminChainPrice) * 100) : null;
+      const { error } = await supabase.functions.invoke('admin-set-chain-price', {
+        body: { org_id: this.adminSelectedClient.org.id, price_agorot: price },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.statusMsg = 'המחיר עודכן.';
+      await this.openAdminClientDetail(this.adminSelectedClient.org.id);
+    },
+
+    async adminGenerateChainInviteLink() {
+      if (!this.adminChainPrice) return;
+      this.sending = true;
+      this.statusMsg = '';
+      this.adminChainInviteLink = '';
+      const price = Math.round(parseFloat(this.adminChainPrice) * 100);
+      const { data, error } = await supabase.functions.invoke('admin-create-chain-invite', {
+        body: { price_agorot: price },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.adminChainInviteLink = data.link;
     },
 
     async sendMagicLink() {
       this.sending = true;
       this.authError = '';
+      const redirectTo = this.chainInviteToken
+        ? `${window.location.origin}/?chain_invite=${this.chainInviteToken}`
+        : window.location.origin;
       const { error } = await supabase.auth.signInWithOtp({
         email: this.email,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: redirectTo },
       });
       this.sending = false;
       if (error) { this.authError = error.message; return; }
@@ -185,7 +243,7 @@ window.app = function app() {
 
       const { data: memberships, error } = await supabase
         .from('org_members')
-        .select('org_id, role')
+        .select('org_id, role, business_id')
         .eq('user_id', this.session.user.id)
         .limit(1);
 
@@ -198,6 +256,7 @@ window.app = function app() {
 
       this.org = { id: memberships[0].org_id };
       this.myRole = memberships[0].role;
+      this.myBusinessId = memberships[0].business_id;
 
       const { data: businesses } = await supabase
         .from('businesses')
@@ -248,22 +307,34 @@ window.app = function app() {
     },
 
     async loadTeam() {
-      const { data } = await supabase
+      let query = supabase
         .from('org_members')
-        .select('user_id, email, role')
+        .select('user_id, email, role, business_id')
         .eq('org_id', this.org.id)
         .order('role', { ascending: true });
+      // A manager only manages their own branch's staff — no need (or RLS
+      // right) to see other branches' rosters, so filter it client-side too.
+      if (this.isManager) query = query.or(`role.eq.owner,business_id.eq.${this.myBusinessId}`);
+      const { data } = await query;
       this.teamMembers = data || [];
+    },
+
+    branchName(businessId) {
+      return this.businesses.find((b) => b.id === businessId)?.name || '';
     },
 
     async inviteStaffMember() {
       if (!this.inviteEmail || this.invitePassword.length < 6) return;
+      if (this.isOwner && this.inviteRole === 'manager' && !this.inviteBusinessId) return;
       this.sending = true;
       this.statusMsg = '';
       this.inviteResult = null;
-      const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { org_id: this.org.id, email: this.inviteEmail, password: this.invitePassword },
-      });
+      const body = { org_id: this.org.id, email: this.inviteEmail, password: this.invitePassword };
+      if (this.isOwner) {
+        body.role = this.inviteRole;
+        if (this.inviteRole === 'manager') body.business_id = this.inviteBusinessId;
+      }
+      const { data, error } = await supabase.functions.invoke('invite-staff', { body });
       this.sending = false;
       if (error) { this.statusMsg = error.message; return; }
       this.inviteResult = {
@@ -273,6 +344,8 @@ window.app = function app() {
       };
       this.inviteEmail = '';
       this.invitePassword = '';
+      this.inviteRole = 'staff';
+      this.inviteBusinessId = '';
       await this.loadTeam();
     },
 
@@ -311,15 +384,22 @@ window.app = function app() {
     async completeOnboarding() {
       this.sending = true;
       this.authError = '';
+      const usedChainInvite = this.chainInviteToken;
       const { error } = await supabase.rpc('create_org_with_business', {
         p_org_name: this.onboarding.orgName,
         p_business_name: this.onboarding.businessName,
         p_business_slug: this.onboarding.slug,
         p_accepted_terms: this.onboarding.acceptedTerms,
+        p_chain_invite_token: usedChainInvite,
       });
       this.sending = false;
       if (error) { this.authError = error.message; return; }
+      localStorage.removeItem('arnakit_chain_invite');
+      this.chainInviteToken = null;
       await this.loadOrg();
+      // Admin-priced chain signups skip the plan picker entirely — go straight
+      // to Cardcom to save a card at the price the admin already fixed.
+      if (usedChainInvite) await this.subscribeToPlan('chain');
     },
 
     selectBranch(businessId) {
@@ -329,6 +409,7 @@ window.app = function app() {
 
     async createBranch() {
       if (!this.canAddBranch || !this.newBranchName || !this.newBranchSlug) return;
+      if (this.newBranchManagerEmail && this.newBranchManagerPassword.length < 6) return;
       this.sending = true;
       this.statusMsg = '';
       const { data, error } = await supabase.rpc('create_business_for_org', {
@@ -336,12 +417,36 @@ window.app = function app() {
         p_name: this.newBranchName,
         p_slug: this.newBranchSlug,
       });
-      this.sending = false;
-      if (error) { this.statusMsg = error.message; return; }
+      if (error) { this.sending = false; this.statusMsg = error.message; return; }
       const { data: business } = await supabase.from('businesses').select('*').eq('id', data).single();
       this.businesses.push(business);
       this.newBranchName = '';
       this.newBranchSlug = '';
+
+      if (this.newBranchManagerEmail) {
+        const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-staff', {
+          body: {
+            org_id: this.org.id,
+            email: this.newBranchManagerEmail,
+            password: this.newBranchManagerPassword,
+            role: 'manager',
+            business_id: business.id,
+          },
+        });
+        if (inviteError) {
+          this.statusMsg = 'הסניף נוסף, אך הזמנת המנהל/ת נכשלה: ' + inviteError.message;
+        } else {
+          this.inviteResult = {
+            email: this.newBranchManagerEmail,
+            password: inviteData?.password_set ? this.newBranchManagerPassword : null,
+            alreadyExisted: !inviteData?.password_set,
+          };
+        }
+        this.newBranchManagerEmail = '';
+        this.newBranchManagerPassword = '';
+        await this.loadTeam();
+      }
+      this.sending = false;
     },
 
     async loadCards() {

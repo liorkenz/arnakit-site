@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   // resolves itself) keeps getting retried, not stuck forever after 3 failures.
   const { data: dueSubscriptions, error } = await supabaseAdmin
     .from('subscriptions')
-    .select('id, org_id, plan_tier, provider_token_id, price_agorot, failed_attempts')
+    .select('id, org_id, plan_tier, provider_token_id, price_agorot, custom_price_agorot, failed_attempts')
     .in('status', ['active', 'past_due'])
     .lte('current_period_end', nowIso)
     .not('provider_token_id', 'is', null);
@@ -39,8 +39,13 @@ Deno.serve(async (req) => {
     // month to month; basic/featured stay at their fixed price_agorot.
     let amountAgorot = sub.price_agorot;
     if (sub.plan_tier === 'chain') {
-      const { data: price } = await supabaseAdmin.rpc('fn_chain_price', { p_org_id: sub.org_id });
-      if (typeof price === 'number') amountAgorot = price;
+      // An admin-negotiated fixed price always wins over the auto-computed one.
+      if (sub.custom_price_agorot) {
+        amountAgorot = sub.custom_price_agorot;
+      } else {
+        const { data: price } = await supabaseAdmin.rpc('fn_chain_price', { p_org_id: sub.org_id });
+        if (typeof price === 'number') amountAgorot = price;
+      }
     }
 
     const result = await chargeByToken(sub.provider_token_id!, amountAgorot);

@@ -1,7 +1,11 @@
-// Authenticated (verify_jwt=true), owner-only. Body: { org_id, email, password }.
-// The owner picks the password themselves and hands the email+password to the
+// Authenticated (verify_jwt=true), owner or manager. Body: { org_id, email, password, role?, business_id? }.
+// The inviter picks the password themselves and hands the email+password to the
 // employee directly (in person / WhatsApp) — no invite email round-trip, so an
 // employee with no email access on the shop tablet can still log in.
+//
+// Owners can invite a 'manager' (needs business_id — the branch they'll run) or
+// plain 'staff'. Managers can only invite 'staff', and always at their own
+// branch — any business_id/role they pass is ignored in favor of their own.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts';
 import { corsHeaders, handleOptions } from '../_shared/cors.ts';
@@ -18,7 +22,8 @@ Deno.serve(async (req) => {
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return Response.json({ error: 'unauthorized' }, { status: 401, headers: corsHeaders });
 
-  const { org_id, email, password } = await req.json();
+  const { org_id, email, password, role, business_id } = await req.json();
+
   if (!org_id || !email || !password) {
     return Response.json({ error: 'org_id, email and password required' }, { status: 400, headers: corsHeaders });
   }
@@ -26,16 +31,28 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'password must be at least 6 characters' }, { status: 400, headers: corsHeaders });
   }
 
-  // RLS-scoped: only succeeds if the caller is actually an owner of this org.
+  // RLS-scoped: only succeeds if the caller is actually a member of this org.
   const { data: membership } = await userClient
     .from('org_members')
-    .select('role')
+    .select('role, business_id')
     .eq('org_id', org_id)
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (membership?.role !== 'owner') {
-    return Response.json({ error: 'only the owner can invite staff' }, { status: 403, headers: corsHeaders });
+  let finalRole = 'staff';
+  let finalBusinessId: string | null = null;
+
+  if (membership?.role === 'owner') {
+    finalRole = role === 'manager' ? 'manager' : 'staff';
+    finalBusinessId = business_id ?? null;
+    if (finalRole === 'manager' && !finalBusinessId) {
+      return Response.json({ error: 'business_id is required to invite a branch manager' }, { status: 400, headers: corsHeaders });
+    }
+  } else if (membership?.role === 'manager') {
+    finalRole = 'staff';
+    finalBusinessId = membership.business_id;
+  } else {
+    return Response.json({ error: 'only an owner or a branch manager can add team members' }, { status: 403, headers: corsHeaders });
   }
 
   let staffUserId: string | null = null;
@@ -64,7 +81,7 @@ Deno.serve(async (req) => {
 
   const { error: memberError } = await supabaseAdmin
     .from('org_members')
-    .insert({ org_id, user_id: staffUserId, role: 'staff', email });
+    .insert({ org_id, user_id: staffUserId, role: finalRole, email, business_id: finalBusinessId });
 
   if (memberError) {
     // unique violation = already a member of this org, treat as success
@@ -73,5 +90,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return Response.json({ ok: true, password_set: passwordSet }, { headers: corsHeaders });
+  return Response.json({ ok: true, password_set: passwordSet, role: finalRole }, { headers: corsHeaders });
 });

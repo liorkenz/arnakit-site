@@ -29,6 +29,12 @@ Deno.serve(async (req) => {
     .eq('org_id', org_id)
     .order('created_at', { ascending: true });
 
+  const { data: subscription } = await supabaseAdmin
+    .from('subscriptions')
+    .select('plan_tier, status, price_agorot, custom_price_agorot')
+    .eq('org_id', org_id)
+    .maybeSingle();
+
   const { data: cards } = await supabaseAdmin
     .from('loyalty_cards')
     .select('id, name, reward_type, target_count, is_active, created_at')
@@ -41,7 +47,7 @@ Deno.serve(async (req) => {
     .eq('org_id', org_id);
 
   return Response.json(
-    { org, branches: branches ?? [], cards: cards ?? [], total_customers: totalCustomers ?? 0 },
+    { org, branches: branches ?? [], cards: cards ?? [], total_customers: totalCustomers ?? 0, subscription: subscription ?? null },
     { headers: corsHeaders },
   );
 });
