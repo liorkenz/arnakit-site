@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
 
   const { data: subscription } = await supabaseAdmin
     .from('subscriptions')
-    .select('id, price_agorot')
+    .select('id, price_agorot, plan_tier')
     .eq('org_id', result.orgId)
     .maybeSingle();
 
@@ -48,10 +48,14 @@ Deno.serve(async (req) => {
   const periodEnd = new Date(periodStart);
   periodEnd.setMonth(periodEnd.getMonth() + 1);
 
+  // plan_tier only changes here, on a confirmed successful charge — this is the
+  // one place that's allowed to upgrade/downgrade what the org is billed for.
   await supabaseAdmin
     .from('subscriptions')
     .update({
       status: 'active',
+      plan_tier: result.planTier ?? subscription.plan_tier,
+      price_agorot: result.amountAgorot || subscription.price_agorot,
       provider_token_id: result.tokenId,
       current_period_start: periodStart.toISOString(),
       current_period_end: periodEnd.toISOString(),

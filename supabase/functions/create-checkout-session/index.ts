@@ -4,6 +4,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts';
 import { createLowProfileSession } from '../_shared/cardcomClient.ts';
 import { corsHeaders, handleOptions } from '../_shared/cors.ts';
+import { logSecurityEvent } from '../_shared/auditLog.ts';
 
 const FIXED_PRICES_AGOROT: Record<string, number> = {
   basic: 8900,
@@ -24,14 +25,25 @@ Deno.serve(async (req) => {
 
   const { org_id, plan_tier } = await req.json();
 
-  // RLS-scoped check: this select only succeeds if the caller is actually a member.
+  // RLS-scoped, and explicitly role-checked: only the owner can change what the
+  // whole org is billed for — mirrors the same fix applied to cancel-subscription.
   const { data: membership } = await userClient
     .from('org_members')
-    .select('org_id')
+    .select('org_id, role')
     .eq('org_id', org_id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
-  if (!membership) return Response.json({ error: 'not a member of this org' }, { status: 403, headers: corsHeaders });
+  if (membership?.role !== 'owner') {
+    await logSecurityEvent({
+      eventType: 'checkout_denied',
+      actorUserId: user.id,
+      actorEmail: user.email,
+      orgId: org_id,
+      detail: { reason: 'not_owner', plan_tier },
+    });
+    return Response.json({ error: 'only the owner can change the subscription plan' }, { status: 403, headers: corsHeaders });
+  }
 
   let amountAgorot: number;
   if (plan_tier === 'chain') {
@@ -57,16 +69,22 @@ Deno.serve(async (req) => {
 
   const origin = Deno.env.get('DASHBOARD_ORIGIN')!;
   const session = await createLowProfileSession(
-    org_id,
+    { orgId: org_id, planTier: plan_tier },
     amountAgorot,
     `${origin}/?billing=success`,
     `${origin}/?billing=failed`,
   );
 
-  await supabaseAdmin
-    .from('subscriptions')
-    .update({ plan_tier, price_agorot: amountAgorot })
-    .eq('org_id', org_id);
+  // plan_tier is deliberately NOT written here — see cardcomClient.ts. It only
+  // takes effect once cardcom-webhook confirms the charge actually succeeded,
+  // otherwise a customer could "upgrade" for free by abandoning checkout.
+  await logSecurityEvent({
+    eventType: 'checkout_started',
+    actorUserId: user.id,
+    actorEmail: user.email,
+    orgId: org_id,
+    detail: { plan_tier, amount_agorot: amountAgorot },
+  });
 
   return Response.json({ redirectUrl: session.redirectUrl }, { headers: corsHeaders });
 });

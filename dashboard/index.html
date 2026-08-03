@@ -118,14 +118,19 @@
         <template x-if="subscription?.status === 'past_due'">
           <p class="status-msg error">החיוב האחרון נכשל — יש לעדכן את פרטי התשלום כדי להמשיך.</p>
         </template>
-        <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
-          <button @click="subscribeToPlan('basic')" :disabled="sending" class="ghost" style="width:100%;">
-            בסיסי — ₪89/חודש · כרטיס אחד, 4 הודעות בחודש
-          </button>
-          <button @click="subscribeToPlan('featured')" :disabled="sending" style="width:100%;">
-            מומלץ — ₪230/חודש · כרטיסים והודעות ללא הגבלה
-          </button>
-        </div>
+        <template x-if="isOwner">
+          <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+            <button @click="subscribeToPlan('basic')" :disabled="sending" class="ghost" style="width:100%;">
+              בסיסי — ₪89/חודש · כרטיס אחד, 4 הודעות בחודש
+            </button>
+            <button @click="subscribeToPlan('featured')" :disabled="sending" style="width:100%;">
+              מומלץ — ₪230/חודש · כרטיסים והודעות ללא הגבלה
+            </button>
+          </div>
+        </template>
+        <template x-if="!isOwner">
+          <p class="status-msg" style="margin-top:10px;">יש לפנות לבעל/ת העסק כדי להפעיל את המנוי.</p>
+        </template>
         <template x-if="authError"><p class="status-msg error" x-text="authError"></p></template>
         <button class="ghost" @click="signOut()" style="width:100%; margin-top:16px;">התנתקות</button>
       </div>

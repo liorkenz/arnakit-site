@@ -18,12 +18,19 @@ export interface LowProfileSession {
   redirectUrl: string;
 }
 
+export interface PendingCheckout {
+  orgId: string;
+  planTier: string;
+}
+
 // Starts a hosted-tokenization session: the org owner is redirected to Cardcom's
-// page to enter their card, which never touches our servers. `orgId` is passed
-// through as ReturnValue so the webhook can correlate the result back to an org
-// without needing a separate pending-checkout table.
+// page to enter their card, which never touches our servers. `pending` is passed
+// through as ReturnValue (JSON-encoded) so the webhook can apply the org's new
+// plan_tier itself, only once Cardcom confirms the charge actually succeeded —
+// the caller must NOT apply plan_tier before that, or a customer can "upgrade"
+// for free by starting checkout and simply never finishing it.
 export async function createLowProfileSession(
-  orgId: string,
+  pending: PendingCheckout,
   amountAgorot: number,
   successUrl: string,
   failUrl: string,
@@ -35,7 +42,7 @@ export async function createLowProfileSession(
       ...terminalCreds(),
       Operation: 'ChargeAndCreateToken',
       Amount: amountAgorot / 100,
-      ReturnValue: orgId,
+      ReturnValue: JSON.stringify(pending),
       SuccessRedirectUrl: successUrl,
       FailedRedirectUrl: failUrl,
       WebHookUrl: Deno.env.get('CARDCOM_WEBHOOK_URL')!,
@@ -50,7 +57,8 @@ export async function createLowProfileSession(
 
 export interface LowProfileResult {
   success: boolean;
-  orgId: string;
+  orgId: string | null;
+  planTier: string | null;
   tokenId: string | null;
   customerId: string | null;
   amountAgorot: number;
@@ -67,9 +75,22 @@ export async function getLowProfileResult(lowProfileId: string): Promise<LowProf
   if (!res.ok) throw new Error(`Cardcom LowProfile/Result failed: ${res.status} ${await res.text()}`);
   const json = await res.json();
 
+  let orgId: string | null = null;
+  let planTier: string | null = null;
+  try {
+    const pending = JSON.parse(json.ReturnValue) as PendingCheckout;
+    orgId = pending.orgId ?? null;
+    planTier = pending.planTier ?? null;
+  } catch {
+    // Tolerate a plain org id string too, in case of an in-flight session from
+    // before ReturnValue started carrying JSON.
+    orgId = json.ReturnValue ?? null;
+  }
+
   return {
     success: json.ResponseCode === 0,
-    orgId: json.ReturnValue,
+    orgId,
+    planTier,
     tokenId: json.TranzactionInfo?.Token ?? null,
     customerId: json.UIValues?.CardOwnerEmail ?? null,
     amountAgorot: Math.round((json.TranzactionInfo?.Amount ?? 0) * 100),
