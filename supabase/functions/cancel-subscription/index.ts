@@ -7,6 +7,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { supabaseAdmin, deactivateCardsForOrg } from '../_shared/supabaseAdmin.ts';
 import { corsHeaders, handleOptions } from '../_shared/cors.ts';
+import { logSecurityEvent } from '../_shared/auditLog.ts';
 
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
@@ -22,14 +23,27 @@ Deno.serve(async (req) => {
 
   const { org_id } = await req.json();
 
-  // RLS-scoped: only succeeds if the caller is actually a member of this org.
+  // RLS-scoped, and explicitly role-checked: any org member could see a row
+  // here (not just the owner), so without the role check below any staff or
+  // branch manager could cancel the whole org's subscription via this endpoint
+  // even though the dashboard only shows the button to owners.
   const { data: membership } = await userClient
     .from('org_members')
-    .select('org_id')
+    .select('org_id, role')
     .eq('org_id', org_id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
-  if (!membership) return Response.json({ error: 'forbidden' }, { status: 403, headers: corsHeaders });
+  if (membership?.role !== 'owner') {
+    await logSecurityEvent({
+      eventType: 'subscription_cancel_denied',
+      actorUserId: user.id,
+      actorEmail: user.email,
+      orgId: org_id,
+      detail: { reason: 'not_owner' },
+    });
+    return Response.json({ error: 'only the owner can cancel the subscription' }, { status: 403, headers: corsHeaders });
+  }
 
   await supabaseAdmin
     .from('subscriptions')
@@ -37,6 +51,13 @@ Deno.serve(async (req) => {
     .eq('org_id', org_id);
 
   await deactivateCardsForOrg(org_id);
+
+  await logSecurityEvent({
+    eventType: 'subscription_cancelled',
+    actorUserId: user.id,
+    actorEmail: user.email,
+    orgId: org_id,
+  });
 
   return Response.json({ ok: true }, { headers: corsHeaders });
 });

@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   // verify_jwt=false for this function (see config.toml) — the public anon key
   // is itself a valid Supabase JWT, so JWT verification alone can't restrict
   // this to pg_cron. This secret is the only thing gating it.
-  if (!requireInternalSecret(req)) {
+  if (!(await requireInternalSecret(req))) {
     return new Response(null, { status: 401 });
   }
 

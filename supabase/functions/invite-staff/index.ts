@@ -9,6 +9,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts';
 import { corsHeaders, handleOptions } from '../_shared/cors.ts';
+import { logSecurityEvent } from '../_shared/auditLog.ts';
 
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
@@ -52,6 +53,13 @@ Deno.serve(async (req) => {
     finalRole = 'staff';
     finalBusinessId = membership.business_id;
   } else {
+    await logSecurityEvent({
+      eventType: 'staff_invite_denied',
+      actorUserId: user.id,
+      actorEmail: user.email,
+      orgId: org_id,
+      detail: { reason: 'not_owner_or_manager', target_email: email },
+    });
     return Response.json({ error: 'only an owner or a branch manager can add team members' }, { status: 403, headers: corsHeaders });
   }
 
@@ -89,6 +97,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: memberError.message }, { status: 500, headers: corsHeaders });
     }
   }
+
+  await logSecurityEvent({
+    eventType: 'staff_invited',
+    actorUserId: user.id,
+    actorEmail: user.email,
+    orgId: org_id,
+    detail: { invited_email: email, role: finalRole, business_id: finalBusinessId, password_set: passwordSet },
+  });
 
   return Response.json({ ok: true, password_set: passwordSet, role: finalRole }, { headers: corsHeaders });
 });
