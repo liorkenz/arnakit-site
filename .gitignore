@@ -9,3 +9,4 @@ service-account*.json
 .DS_Store
 supabase/.temp/
 apple-certs/
+services/pkpass-signer/certs/
