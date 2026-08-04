@@ -118,9 +118,15 @@ Alpine.data('app', () => ({
 
       const { data: { session } } = await supabase.auth.getSession();
       this.session = session;
+      // A fresh magic-link redirect often hasn't finished exchanging the URL's
+      // auth token yet at this point — getSession() can still return null here,
+      // so checkPlatformAdmin() below silently no-ops. onAuthStateChange fires
+      // afterward with the real session, so it needs its own admin check too,
+      // not just loadOrg() — otherwise a first-time signup right after clicking
+      // the email link never actually becomes platform admin.
       supabase.auth.onAuthStateChange((_event, session) => {
         this.session = session;
-        this.loadOrg();
+        this.checkPlatformAdmin().then(() => this.loadOrg());
       });
       await this.checkPlatformAdmin();
       await this.loadOrg();
