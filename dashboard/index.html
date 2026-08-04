@@ -115,7 +115,7 @@
       <div class="card-box" style="max-width:460px;">
         <h1>כמעט שם</h1>
         <p class="muted">בחרו תוכנית כדי לפתוח את לוח הבקרה — הכרטיס, הלקוחות וההודעות שלכם ייכנסו לפעולה מיד אחרי התשלום.</p>
-        <template x-if="subscription?.status === 'past_due'">
+        <template x-if="subscription && subscription.status === 'past_due'">
           <p class="status-msg error">החיוב האחרון נכשל — יש לעדכן את פרטי התשלום כדי להמשיך.</p>
         </template>
         <template x-if="isOwner">
@@ -141,7 +141,7 @@
   <template x-if="view === 'dashboard'">
     <div>
       <div class="topbar">
-        <div style="font-family:'Frank Ruhl Libre',serif; font-weight:700; font-size:19px;" x-text="business?.name || 'ארנקית'"></div>
+        <div style="font-family:'Frank Ruhl Libre',serif; font-weight:700; font-size:19px;" x-text="(business && business.name) || 'ארנקית'"></div>
         <div style="display:flex; gap:10px;">
           <template x-if="isPlatformAdmin">
             <button class="ghost" @click="openAdminPanel()">פאנל ניהול</button>
@@ -547,7 +547,7 @@
             <h2 x-text="adminSelectedClient.org.name"></h2>
             <p class="muted" style="margin-bottom:20px;" x-text="'סה\'כ לקוחות (כל הסניפים): ' + adminSelectedClient.total_customers"></p>
 
-            <template x-if="adminSelectedClient.subscription?.plan_tier === 'chain'">
+            <template x-if="adminSelectedClient.subscription && adminSelectedClient.subscription.plan_tier === 'chain'">
               <div style="margin-bottom:24px;">
                 <h3 style="font-size:15px; margin-bottom:10px;">מחיר קבוע לרשת</h3>
                 <p class="muted">ריקו את השדה כדי לחזור למחיר המחושב אוטומטית (5 סניפים בתשלום, ה-6 חינם).</p>
