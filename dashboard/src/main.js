@@ -326,6 +326,13 @@ Alpine.data('app', () => ({
       this.org = { id: memberships[0].org_id };
       this.myRole = memberships[0].role;
       this.myBusinessId = memberships[0].business_id;
+      // Default activeTab is 'card', an owner-only tab — a staff/manager
+      // account would otherwise land there on login with no button to have
+      // gotten them there (the tab content itself is also gated, but this
+      // avoids briefly showing the wrong starting tab at all).
+      if (this.myRole !== 'owner' && this.activeTab === 'card') {
+        this.activeTab = 'scan';
+      }
 
       const { data: businesses } = await supabase
         .from('businesses')
