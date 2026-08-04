@@ -134,15 +134,25 @@ Alpine.data('app', () => ({
 
     async checkPlatformAdmin() {
       if (!this.session) return;
-      // No-op for everyone except whoever is first to call it — see migration
-      // 0012's bootstrap_platform_admin(). Safe to call every load.
-      await supabase.rpc('bootstrap_platform_admin').catch(() => {});
-      const { data } = await supabase
-        .from('platform_admins')
-        .select('user_id')
-        .eq('user_id', this.session.user.id)
-        .maybeSingle();
-      this.isPlatformAdmin = !!data;
+      try {
+        // No-op for everyone except whoever is first to call it — see
+        // migration 0012's bootstrap_platform_admin(). Safe to call every load.
+        const { error: rpcError } = await supabase.rpc('bootstrap_platform_admin');
+        // "authentication required" fires if this runs before the session is
+        // fully live yet (see init()) — expected and harmless, the retry from
+        // onAuthStateChange covers it. Anything else is worth seeing.
+        if (rpcError && rpcError.message !== 'authentication required') {
+          console.error('bootstrap_platform_admin failed', rpcError);
+        }
+        const { data } = await supabase
+          .from('platform_admins')
+          .select('user_id')
+          .eq('user_id', this.session.user.id)
+          .maybeSingle();
+        this.isPlatformAdmin = !!data;
+      } catch (err) {
+        console.error('checkPlatformAdmin failed', err);
+      }
     },
 
     async openAdminPanel() {
@@ -233,7 +243,19 @@ Alpine.data('app', () => ({
 
     async loadOrg() {
       if (!this.session) { this.view = 'login'; return; }
+      try {
+        await this._loadOrgInner();
+      } catch (err) {
+        // Anything unexpected below used to leave the screen stuck on "טוען..."
+        // forever (view starts at 'loading' and nothing here ever re-set it on
+        // a thrown error) — surface it instead of hanging silently.
+        console.error('loadOrg failed', err);
+        this.authError = err.message || String(err);
+        this.view = 'login';
+      }
+    },
 
+    async _loadOrgInner() {
       // Step-up check: if the account has 2FA enrolled, a plain magic-link login
       // only reaches aal1 — block access to org data until the TOTP challenge
       // (aal2) passes, so a stolen/forwarded magic-link email alone isn't enough.
