@@ -1,4 +1,4 @@
-import Alpine from 'alpinejs';
+import Alpine from '@alpinejs/csp';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { supabase } from './lib/supabaseClient.js';
@@ -8,8 +8,12 @@ window.Alpine = Alpine;
 
 const PLAN_LABELS = { basic: 'בסיסי — ₪89/חודש', featured: 'מומלץ — ₪230/חודש' };
 
-window.app = function app() {
-  return {
+// The CSP-safe Alpine build never uses eval/new Function, which our strict
+// script-src 'self' CSP requires — but it means x-data can't call an
+// arbitrary function expression like "app()" (there's no scope yet to
+// resolve that safely). Alpine.data() registers a named component instead,
+// referenced from index.html as the bare identifier x-data="app".
+Alpine.data('app', () => ({
     view: 'loading',
     session: null,
     email: '',
@@ -870,7 +874,6 @@ window.app = function app() {
         this.qrDataUrl = url;
       });
     },
-  };
-};
+}));
 
 Alpine.start();
