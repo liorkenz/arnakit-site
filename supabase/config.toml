@@ -12,10 +12,13 @@ port = 54322
 enabled = true
 port = 54323
 
+[storage.vector]
+enabled = false
+
 [auth]
 enabled = true
-site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173"]
+site_url = "https://arnakit-dashboard.vercel.app"
+additional_redirect_urls = ["http://localhost:5173", "https://arnakit-dashboard.vercel.app", "https://arnakit.netlify.app"]
 enable_signup = true
 
 [auth.email]
