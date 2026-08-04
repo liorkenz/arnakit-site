@@ -464,16 +464,16 @@
             <h2>אימות דו-שלבי (2FA)</h2>
             <p class="muted" style="margin-bottom:16px;">שכבת הגנה נוספת — גם אם מישהו יקבל גישה לתיבת האימייל שלכם, לא יוכל להיכנס בלי הקוד מאפליקציית האימות (Google Authenticator, Authy וכד׳).</p>
 
-            <template x-if="mfaFactors.some(f => f.status === 'verified')">
+            <template x-if="hasMfaEnrolled">
               <div>
                 <p style="color:var(--mint); margin-bottom:14px;">✓ אימות דו-שלבי פעיל</p>
-                <template x-for="f in mfaFactors.filter(f => f.status === 'verified')" :key="f.id">
+                <template x-for="f in verifiedMfaFactors" :key="f.id">
                   <button class="ghost" @click="removeMfaFactor(f.id)" :disabled="sending" style="font-size:13px;">בטלו אימות דו-שלבי</button>
                 </template>
               </div>
             </template>
 
-            <template x-if="!mfaFactors.some(f => f.status === 'verified') && !mfaEnrollFactorId">
+            <template x-if="!hasMfaEnrolled && !mfaEnrollFactorId">
               <button @click="startMfaEnrollment()" :disabled="sending">הפעילו אימות דו-שלבי</button>
             </template>
 

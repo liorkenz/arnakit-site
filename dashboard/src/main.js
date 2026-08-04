@@ -101,6 +101,14 @@ Alpine.data('app', () => ({
     get messagesRemaining() {
       return this.isBasicPlan ? Math.max(0, 4 - this.campaignsSentThisMonth) : null;
     },
+    // Alpine's CSP-safe parser doesn't support inline arrow functions
+    // (.some(f => ...)) in directive expressions — moved here as getters.
+    get hasMfaEnrolled() {
+      return this.mfaFactors.some((f) => f.status === 'verified');
+    },
+    get verifiedMfaFactors() {
+      return this.mfaFactors.filter((f) => f.status === 'verified');
+    },
 
     async init() {
       // A magic-link email round-trip often opens in a fresh tab, losing any
