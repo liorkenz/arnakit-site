@@ -20,6 +20,11 @@
     --radius:20px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
+  .bsd-mark{
+    position:fixed; top:10px; right:14px; z-index:300;
+    font-family:'Frank Ruhl Libre', serif; font-size:14px; color:var(--muted);
+    opacity:0.85; pointer-events:none;
+  }
   html{scroll-behavior:smooth;}
   body{
     background:
@@ -348,6 +353,8 @@
 </style>
 </head>
 <body>
+
+<div class="bsd-mark" aria-hidden="true">בס"ד</div>
 
 <div class="orb orb-1" aria-hidden="true"></div>
 <div class="orb orb-2" aria-hidden="true"></div>
