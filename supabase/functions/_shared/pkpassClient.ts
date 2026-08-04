@@ -12,6 +12,7 @@ export interface PassCardRow {
   color_c2: string;
   apple_pass_type_id: string | null;
   last_campaign_message: string | null;
+  background_image_url: string | null;
 }
 
 export interface PassCustomerRow {
@@ -46,6 +47,7 @@ export async function generatePkpass(
       colorC1: card.color_c1,
       colorC2: card.color_c2,
       passTypeId: card.apple_pass_type_id,
+      backgroundImageUrl: card.background_image_url,
       webServiceUrl: `${functionsBase}/apple-passkit-web-service`,
       serialNumber: customer.pass_serial_number,
       authToken: customer.pass_auth_token,

@@ -28,7 +28,7 @@ export async function loadPassDataBySerial(serialNumber: string): Promise<FullPa
 
   const { data: card } = await supabaseAdmin
     .from('loyalty_cards')
-    .select('org_id, name, reward_type, target_count, reward_description, color_c1, color_c2, apple_pass_type_id, last_campaign_message')
+    .select('org_id, name, reward_type, target_count, reward_description, color_c1, color_c2, apple_pass_type_id, last_campaign_message, background_image_url')
     .eq('org_id', customer.org_id)
     .eq('is_active', true)
     .order('created_at', { ascending: true })

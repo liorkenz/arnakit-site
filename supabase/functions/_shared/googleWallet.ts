@@ -93,7 +93,7 @@ async function ensureLoyaltyClass(businessName: string, card: PassCardRow): Prom
   const id = classId(card.org_id);
   const accessToken = await getAccessToken();
 
-  const body = {
+  const body: Record<string, unknown> = {
     id,
     issuerName: businessName,
     programName: card.name,
@@ -103,6 +103,12 @@ async function ensureLoyaltyClass(businessName: string, card: PassCardRow): Prom
     hexBackgroundColor: card.color_c1,
     reviewStatus: 'UNDER_REVIEW',
   };
+
+  // The merchant's uploaded background image (dashboard "תמונת רקע") — Google
+  // Wallet's equivalent of Apple's strip image, shown as the card's banner.
+  if (card.background_image_url) {
+    body.heroImage = { sourceUri: { uri: card.background_image_url } };
+  }
 
   const res = await fetch(
     `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${id}`,

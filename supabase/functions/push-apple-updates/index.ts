@@ -19,6 +19,6 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'customer_id required' }, { status: 400, headers: corsHeaders });
   }
 
-  await sendApplePushForCustomer(customer_id);
-  return Response.json({ ok: true }, { headers: corsHeaders });
+  const results = await sendApplePushForCustomer(customer_id);
+  return Response.json({ ok: true, results }, { headers: corsHeaders });
 });

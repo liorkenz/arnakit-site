@@ -21,6 +21,7 @@ export interface CardData {
   authToken: string;
   campaignMessage: string | null;
   unsubscribeUrl: string;
+  backgroundImageUrl: string | null;
 }
 
 function hexToRgb(hex: string): string {
@@ -69,6 +70,25 @@ export async function buildPass(data: CardData): Promise<Buffer> {
   );
 
   pass.type = 'storeCard';
+
+  // storeCard's only real "photo" slot is the strip image at the top of the
+  // card — the merchant's uploaded background image (dashboard "תמונת רקע")
+  // is applied here. Reused as-is for both @1x/@2x since there's no
+  // server-side resizing; Apple Wallet scales it to fit either way.
+  if (data.backgroundImageUrl) {
+    try {
+      const imgRes = await fetch(data.backgroundImageUrl);
+      if (imgRes.ok) {
+        const buffer = Buffer.from(await imgRes.arrayBuffer());
+        pass.addBuffer('strip.png', buffer);
+        pass.addBuffer('strip@2x.png', buffer);
+      } else {
+        console.error('background image fetch failed', data.backgroundImageUrl, imgRes.status);
+      }
+    } catch (err) {
+      console.error('background image fetch error', data.backgroundImageUrl, err);
+    }
+  }
 
   pass.primaryFields.push({
     key: 'balance',
