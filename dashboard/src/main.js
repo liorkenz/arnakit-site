@@ -36,6 +36,7 @@ Alpine.data('app', () => ({
     activeTab: 'card',
     campaignMessage: '',
     campaignsSentThisMonth: 0,
+    campaignRequests: [],
     qrDataUrl: '',
     enrollUrl: '',
     planLabels: PLAN_LABELS,
@@ -108,6 +109,9 @@ Alpine.data('app', () => ({
     },
     get verifiedMfaFactors() {
       return this.mfaFactors.filter((f) => f.status === 'verified');
+    },
+    get pendingCampaignRequests() {
+      return this.campaignRequests.filter((r) => r.status === 'pending');
     },
 
     async init() {
@@ -243,6 +247,10 @@ Alpine.data('app', () => ({
     openTeamTab() {
       this.activeTab = 'team';
       this.loadTeam();
+    },
+    openCampaignsTab() {
+      this.activeTab = 'campaigns';
+      this.loadCampaignRequests();
     },
 
     async sendMagicLink() {
@@ -835,6 +843,41 @@ Alpine.data('app', () => ({
       if (error) { this.statusMsg = error.message; return; }
       this.statusMsg = 'הקמפיין נשלח.';
       this.campaignMessage = '';
+      await this.loadCampaignQuotaUsage();
+    },
+
+    async loadCampaignRequests() {
+      const { data } = await supabase
+        .from('campaign_requests')
+        .select('*')
+        .eq('org_id', this.org.id)
+        .order('created_at', { ascending: false });
+      this.campaignRequests = data || [];
+    },
+
+    async submitCampaignRequest() {
+      this.sending = true;
+      this.statusMsg = '';
+      const { error } = await supabase.functions.invoke('request-campaign', {
+        body: { org_id: this.org.id, message: this.campaignMessage },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.statusMsg = 'הבקשה נשלחה לאישור הבעלים.';
+      this.campaignMessage = '';
+      await this.loadCampaignRequests();
+    },
+
+    async respondToCampaignRequest(requestId, decision) {
+      this.sending = true;
+      this.statusMsg = '';
+      const { error } = await supabase.functions.invoke('respond-campaign-request', {
+        body: { request_id: requestId, decision },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.statusMsg = decision === 'approved' ? 'הקמפיין אושר ונשלח.' : 'הבקשה נדחתה.';
+      await this.loadCampaignRequests();
       await this.loadCampaignQuotaUsage();
     },
 

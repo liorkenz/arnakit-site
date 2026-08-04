@@ -1,8 +1,9 @@
-// Authenticated (verify_jwt=true), owner-only — a staff/manager account uses
-// request-campaign instead, which requires the owner's approval before
-// anything actually sends. Body: { org_id, message }.
+// Authenticated (verify_jwt=true), any org member (owner included, though the
+// dashboard routes owners through send-campaign directly). Body: { org_id, message }.
+// Creates a pending campaign_requests row — nothing is sent to any customer
+// until the owner approves it via respond-campaign-request.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { executeCampaignSend, checkCampaignQuota } from '../_shared/campaignSend.ts';
+import { supabaseAdmin } from '../_shared/supabaseAdmin.ts';
 import { corsHeaders, handleOptions } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
@@ -20,21 +21,21 @@ Deno.serve(async (req) => {
   const { org_id, message } = await req.json();
   if (!org_id || !message) return Response.json({ error: 'org_id and message required' }, { status: 400, headers: corsHeaders });
 
+  // RLS-scoped: only succeeds if the caller is actually a member of this org.
   const { data: membership } = await userClient
     .from('org_members')
-    .select('role')
+    .select('org_id')
     .eq('org_id', org_id)
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (membership?.role !== 'owner') {
-    return Response.json({ error: 'only the owner can send a campaign directly — ask them to approve your request instead' }, { status: 403, headers: corsHeaders });
-  }
+  if (!membership) return Response.json({ error: 'forbidden' }, { status: 403, headers: corsHeaders });
 
-  const quotaError = await checkCampaignQuota(org_id);
-  if (quotaError) return Response.json({ error: quotaError }, { status: 403, headers: corsHeaders });
+  const { error } = await supabaseAdmin
+    .from('campaign_requests')
+    .insert({ org_id, message, requested_by: user.id, requested_by_email: user.email });
 
-  const sentCount = await executeCampaignSend(org_id, message, user.id);
+  if (error) return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
 
-  return Response.json({ ok: true, sentCount }, { headers: corsHeaders });
+  return Response.json({ ok: true }, { headers: corsHeaders });
 });
