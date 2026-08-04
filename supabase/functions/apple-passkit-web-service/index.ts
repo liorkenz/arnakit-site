@@ -17,9 +17,15 @@ function extractAuthToken(req: Request): string | null {
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  // Supabase strips the function name; req path here is whatever comes after
-  // .../apple-passkit-web-service
-  const segments = url.pathname.split('/').filter(Boolean);
+  // Supabase does NOT strip the function name from the path (confirmed by
+  // testing live — every route 404'd because of this wrong assumption, which
+  // silently broke registration/unregister/updated-serials/get-pass/log
+  // entirely since launch). Anchor on the first 'v1' segment instead of
+  // assuming a fixed prefix, so this keeps working regardless of whatever the
+  // platform's actual prefix behavior is.
+  const allSegments = url.pathname.split('/').filter(Boolean);
+  const v1Index = allSegments.indexOf('v1');
+  const segments = v1Index === -1 ? [] : allSegments.slice(v1Index);
 
   try {
     // /v1/devices/:deviceLibraryIdentifier/registrations/:passTypeIdentifier/:serialNumber?
