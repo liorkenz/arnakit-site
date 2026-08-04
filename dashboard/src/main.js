@@ -208,6 +208,35 @@ Alpine.data('app', () => ({
       this.adminChainInviteLink = data.link;
     },
 
+    // The CSP-safe Alpine build's expression parser doesn't support multiple
+    // ";"-separated statements in a single directive (e.g. @click="a=1; b()")
+    // — every tab that needed "switch tab AND load its data" silently failed
+    // to do either. Each needs its own single-call method instead.
+    switchToPasswordLogin() {
+      this.loginMode = 'password';
+      this.authError = '';
+    },
+    switchToMagicLogin() {
+      this.loginMode = 'magic';
+      this.authError = '';
+    },
+    openCustomersTab() {
+      this.activeTab = 'customers';
+      this.loadCustomers();
+    },
+    openBillingTab() {
+      this.activeTab = 'billing';
+      this.loadSubscription();
+    },
+    openSecurityTab() {
+      this.activeTab = 'security';
+      this.loadMfaFactors();
+    },
+    openTeamTab() {
+      this.activeTab = 'team';
+      this.loadTeam();
+    },
+
     async sendMagicLink() {
       this.sending = true;
       this.authError = '';
