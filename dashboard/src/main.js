@@ -35,6 +35,7 @@ Alpine.data('app', () => ({
     pendingBgFile: null,
     bgPreviewDataUrl: null,
     customers: [],
+    customerSearchQuery: '',
     activeTab: 'card',
     campaignMessage: '',
     campaignsSentThisMonth: 0,
@@ -100,6 +101,14 @@ Alpine.data('app', () => ({
     },
     get canManageTeam() {
       return this.isOwner || this.isManager;
+    },
+    get canViewCustomers() {
+      return this.isOwner || this.isManager;
+    },
+    get filteredCustomers() {
+      const q = this.customerSearchQuery.trim();
+      if (!q) return this.customers;
+      return this.customers.filter((c) => (c.name || '').includes(q) || (c.phone || '').includes(q));
     },
     get messagesRemaining() {
       return this.isBasicPlan ? Math.max(0, 4 - this.campaignsSentThisMonth) : null;

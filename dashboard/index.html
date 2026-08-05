@@ -156,7 +156,7 @@
           <template x-if="isOwner">
             <button class="tab-btn" role="tab" :aria-selected="activeTab==='card'" :class="{active: activeTab==='card'}" @click="activeTab='card'">הכרטיס</button>
           </template>
-          <template x-if="isOwner">
+          <template x-if="canViewCustomers">
             <button class="tab-btn" role="tab" :aria-selected="activeTab==='customers'" :class="{active: activeTab==='customers'}" @click="openCustomersTab()">לקוחות</button>
           </template>
           <button class="tab-btn" role="tab" :aria-selected="activeTab==='campaigns'" :class="{active: activeTab==='campaigns'}" @click="openCampaignsTab()">קמפיינים</button>
@@ -359,10 +359,11 @@
         </template>
 
         <!-- CUSTOMERS -->
-        <template x-if="activeTab === 'customers' && isOwner">
+        <template x-if="activeTab === 'customers' && canViewCustomers">
           <div class="panel">
             <h2>לקוחות (<span x-text="customers.length"></span>)</h2>
             <p class="muted" style="margin-bottom:16px;">הלקוחות והנקודות משותפים לכל סניפי הרשת.</p>
+            <input type="text" x-model="customerSearchQuery" placeholder="חיפוש לפי שם או טלפון" style="margin-bottom:16px; max-width:320px;">
             <table>
               <thead>
                 <tr>
@@ -373,7 +374,7 @@
                 </tr>
               </thead>
               <tbody>
-                <template x-for="c in customers" :key="c.id">
+                <template x-for="c in filteredCustomers" :key="c.id">
                   <tr>
                     <td>
                       <div x-text="c.name || 'ללא שם (נרשם/ה לפני העדכון)'"></div>
@@ -403,6 +404,9 @@
                 </template>
                 <template x-if="customers.length === 0">
                   <tr><td colspan="4" class="muted">עדיין אין לקוחות רשומים.</td></tr>
+                </template>
+                <template x-if="customers.length > 0 && filteredCustomers.length === 0">
+                  <tr><td colspan="4" class="muted">לא נמצאו לקוחות התואמים לחיפוש.</td></tr>
                 </template>
               </tbody>
             </table>
