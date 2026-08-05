@@ -3,7 +3,7 @@ import { createGreenInvoiceReceipt } from './greenInvoiceClient.ts';
 
 // Lior's own inbox — always gets a copy of every receipt as a bookkeeping
 // backup, in addition to whatever's on file in Green Invoice itself.
-const ARNAKIT_BACKUP_EMAIL = 'anakit.app@gmail.com';
+const ARNAKIT_BACKUP_EMAIL = 'arnakit.app@gmail.com';
 
 // Called right after an invoice row is marked successful, from both
 // cardcom-webhook (first/checkout payment) and billing-cron (recurring
