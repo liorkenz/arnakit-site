@@ -6,6 +6,7 @@
 import { supabaseAdmin, deactivateCardsForOrg, reactivateCardsForOrg } from '../_shared/supabaseAdmin.ts';
 import { chargeByToken } from '../_shared/cardcomClient.ts';
 import { requireInternalSecret } from '../_shared/requireInternalSecret.ts';
+import { generateReceiptForInvoice } from '../_shared/generateReceipt.ts';
 
 const MAX_FAILED_ATTEMPTS = 3;
 
@@ -66,13 +67,21 @@ Deno.serve(async (req) => {
         })
         .eq('id', sub.id);
 
-      await supabaseAdmin.from('invoices').insert({
-        subscription_id: sub.id,
-        org_id: sub.org_id,
-        provider_charge_id: result.transactionId,
-        amount_agorot: amountAgorot,
-        status: 'success',
-      });
+      const { data: invoice } = await supabaseAdmin
+        .from('invoices')
+        .insert({
+          subscription_id: sub.id,
+          org_id: sub.org_id,
+          provider_charge_id: result.transactionId,
+          amount_agorot: amountAgorot,
+          status: 'success',
+        })
+        .select('id')
+        .single();
+
+      if (invoice) {
+        await generateReceiptForInvoice(invoice.id, sub.org_id, sub.plan_tier, amountAgorot);
+      }
 
       // in case this subscription had lapsed into past_due and had its cards
       // deactivated below on a previous run, a successful charge un-does that
