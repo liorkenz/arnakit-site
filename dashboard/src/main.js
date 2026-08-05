@@ -32,6 +32,8 @@ Alpine.data('app', () => ({
     subscription: null,
     card: {},
     cards: [],
+    pendingBgFile: null,
+    bgPreviewDataUrl: null,
     customers: [],
     activeTab: 'card',
     campaignMessage: '',
@@ -112,6 +114,14 @@ Alpine.data('app', () => ({
     },
     get pendingCampaignRequests() {
       return this.campaignRequests.filter((r) => r.status === 'pending');
+    },
+    get previewImageUrl() {
+      return this.bgPreviewDataUrl || this.card.background_image_url || '';
+    },
+    get previewGradient() {
+      const c1 = this.card.color_c1 || '#1c2b3a';
+      const c2 = this.card.color_c2 || '#0f766e';
+      return 'linear-gradient(160deg, ' + c1 + ', ' + c2 + ')';
     },
 
     async init() {
@@ -580,6 +590,21 @@ Alpine.data('app', () => ({
     async saveCard() {
       this.sending = true;
       this.statusMsg = '';
+
+      // The chosen file only gets uploaded now, at actual save time — until
+      // then it's just previewed locally in the demo phones, so a merchant
+      // can try a few images without touching the real card each time.
+      let backgroundImageUrl = this.card.background_image_url;
+      if (this.pendingBgFile) {
+        const path = `${this.org.id}/${Date.now()}-${this.pendingBgFile.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('card-backgrounds')
+          .upload(path, this.pendingBgFile);
+        if (uploadError) { this.sending = false; this.statusMsg = uploadError.message; return; }
+        const { data } = supabase.storage.from('card-backgrounds').getPublicUrl(path);
+        backgroundImageUrl = data.publicUrl;
+      }
+
       const { error } = await supabase
         .from('loyalty_cards')
         .update({
@@ -591,29 +616,25 @@ Alpine.data('app', () => ({
           color_c2: this.card.color_c2,
           stamp_color: this.card.stamp_color,
           credit_earn_rate_percent: this.card.credit_earn_rate_percent,
+          background_image_url: backgroundImageUrl,
         })
         .eq('id', this.card.id);
       this.sending = false;
-      this.statusMsg = error ? error.message : 'נשמר בהצלחה.';
+      if (error) { this.statusMsg = error.message; return; }
+      this.card.background_image_url = backgroundImageUrl;
+      this.pendingBgFile = null;
+      this.statusMsg = 'נשמר בהצלחה.';
     },
 
-    async uploadBackground(evt) {
+    previewBackground(evt) {
       const file = evt.target.files[0];
       if (!file) return;
-      this.sending = true;
-      const path = `${this.org.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('card-backgrounds')
-        .upload(path, file);
-      if (uploadError) { this.sending = false; this.statusMsg = uploadError.message; return; }
-      const { data } = supabase.storage.from('card-backgrounds').getPublicUrl(path);
-      const { error } = await supabase
-        .from('loyalty_cards')
-        .update({ background_image_url: data.publicUrl })
-        .eq('id', this.card.id);
-      this.card.background_image_url = data.publicUrl;
-      this.sending = false;
-      this.statusMsg = error ? error.message : 'התמונה עודכנה.';
+      this.pendingBgFile = file;
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.bgPreviewDataUrl = reader.result;
+      };
+      reader.readAsDataURL(file);
     },
 
     async loadCustomers() {

@@ -274,7 +274,46 @@
               </div>
             </fieldset>
             <label for="bgUpload">תמונת רקע</label>
-            <input type="file" id="bgUpload" accept="image/*" @change="uploadBackground($event)">
+            <input type="file" id="bgUpload" accept="image/*" @change="previewBackground($event)">
+            <p class="muted" style="font-size:12.5px; margin-top:-8px; margin-bottom:14px;">כך זה ייראה — התמונה נשמרת רק כשלוחצים "שמירת שינויים".</p>
+
+            <div style="display:flex; gap:24px; flex-wrap:wrap; justify-content:center; margin-bottom:20px;">
+              <div>
+                <div style="width:150px; height:300px; border-radius:34px; border:6px solid #2a2a2a; background:#000; padding:8px; position:relative; box-sizing:border-box;">
+                  <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); width:60px; height:16px; background:#000; border-radius:0 0 12px 12px; z-index:2;"></div>
+                  <div style="width:100%; height:100%; border-radius:24px; overflow:hidden; background:#fff; position:relative;">
+                    <div :style="'background:' + previewGradient + '; width:100%; height:100%; padding:16px 10px; box-sizing:border-box; color:#f6f4ef; font-family:Rubik,sans-serif; display:flex; flex-direction:column;'">
+                      <template x-if="previewImageUrl">
+                        <img :src="previewImageUrl" style="width:100%; height:60px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+                      </template>
+                      <div style="font-weight:700; font-size:12px; margin-bottom:4px;" x-text="card.name || 'שם הכרטיס'"></div>
+                      <div style="font-size:18px; font-weight:800;" x-text="card.reward_type === 'stamps' ? ('0 / ' + (card.target_count || 10)) : '₪0'"></div>
+                      <div style="font-size:9px; opacity:0.8; margin-top:2px;" x-text="card.reward_type === 'stamps' ? 'תווים' : 'קרדיט'"></div>
+                      <div style="font-size:9px; opacity:0.7; margin-top:auto;" x-text="card.reward_description || ''"></div>
+                    </div>
+                  </div>
+                </div>
+                <p class="muted" style="text-align:center; font-size:12px; margin-top:8px;">iPhone (Apple Wallet)</p>
+              </div>
+              <div>
+                <div style="width:150px; height:300px; border-radius:20px; border:6px solid #2a2a2a; background:#000; padding:8px; position:relative; box-sizing:border-box;">
+                  <div style="position:absolute; top:16px; left:50%; transform:translateX(-50%); width:10px; height:10px; background:#000; border-radius:50%; z-index:2;"></div>
+                  <div style="width:100%; height:100%; border-radius:12px; overflow:hidden; background:#fff; position:relative;">
+                    <div :style="'background:' + previewGradient + '; width:100%; height:100%; padding:20px 10px 16px; box-sizing:border-box; color:#f6f4ef; font-family:Rubik,sans-serif; display:flex; flex-direction:column;'">
+                      <template x-if="previewImageUrl">
+                        <img :src="previewImageUrl" style="width:100%; height:70px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+                      </template>
+                      <div style="font-weight:700; font-size:12px; margin-bottom:4px;" x-text="card.name || 'שם הכרטיס'"></div>
+                      <div style="font-size:18px; font-weight:800;" x-text="card.reward_type === 'stamps' ? ('0 / ' + (card.target_count || 10)) : '₪0'"></div>
+                      <div style="font-size:9px; opacity:0.8; margin-top:2px;" x-text="card.reward_type === 'stamps' ? 'תווים' : 'קרדיט'"></div>
+                      <div style="font-size:9px; opacity:0.7; margin-top:auto;" x-text="card.reward_description || ''"></div>
+                    </div>
+                  </div>
+                </div>
+                <p class="muted" style="text-align:center; font-size:12px; margin-top:8px;">Samsung (Google Wallet)</p>
+              </div>
+            </div>
+
             <button @click="saveCard()" :disabled="sending" style="margin-top:10px;">
               <span x-text="sending ? 'שומר…' : 'שמירת שינויים'"></span>
             </button>
