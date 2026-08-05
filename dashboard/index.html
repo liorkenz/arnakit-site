@@ -78,7 +78,7 @@
         <input type="text" id="businessSlug" x-model="onboarding.slug" placeholder="cafe-hapina-dizengoff">
         <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400; font-family:'Rubik'; color:var(--paper); margin-bottom:18px;">
           <input type="checkbox" x-model="onboarding.acceptedTerms" style="margin-top:3px;">
-          <span style="font-size:13.5px;">קראתי ואני מסכימ/ה ל<a href="/terms.html" target="_blank" style="color:var(--mint);">תנאי השימוש</a> ול<a href="/privacy.html" target="_blank" style="color:var(--mint);">מדיניות הפרטיות</a></span>
+          <span style="font-size:13.5px;">קראתי ואני מסכימ/ה ל<a href="https://arnakit-site.vercel.app/terms.html" target="_blank" style="color:var(--mint);">תנאי השימוש</a> ול<a href="https://arnakit-site.vercel.app/privacy.html" target="_blank" style="color:var(--mint);">מדיניות הפרטיות</a></span>
         </label>
         <button @click="completeOnboarding()" :disabled="!canOnboard || sending" style="width:100%;">
           <span x-text="sending ? 'יוצר…' : 'הקימו את העסק'"></span>
