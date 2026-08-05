@@ -92,19 +92,39 @@ Deno.serve(async (req) => {
   const name = url.searchParams.get('name')?.trim() || null;
   const phone = url.searchParams.get('phone')?.trim() || null;
 
-  const { data: customer } = await supabaseAdmin
-    .from('customers')
-    .insert({
-      org_id: business.org_id,
-      enrolled_business_id: business.id,
-      platform,
-      marketing_consent: marketingConsent,
-      consented_at: new Date().toISOString(),
-      name,
-      phone,
-    })
-    .select('*')
-    .single();
+  // Re-scanning the same QR code (lost the pass, switched phones, or just
+  // scanned again out of habit) must recover the SAME card — otherwise every
+  // re-add creates a brand new customer row with zero stamps, and the
+  // customer ends up with duplicate passes in their wallet. Phone is the only
+  // reliable dedup key we collect; with no phone there's nothing to match on,
+  // so that case still creates a new customer as before.
+  let customer = null;
+  if (phone) {
+    const { data: existing } = await supabaseAdmin
+      .from('customers')
+      .select('*')
+      .eq('org_id', business.org_id)
+      .eq('phone', phone)
+      .maybeSingle();
+    customer = existing;
+  }
+
+  if (!customer) {
+    const { data: inserted } = await supabaseAdmin
+      .from('customers')
+      .insert({
+        org_id: business.org_id,
+        enrolled_business_id: business.id,
+        platform,
+        marketing_consent: marketingConsent,
+        consented_at: new Date().toISOString(),
+        name,
+        phone,
+      })
+      .select('*')
+      .single();
+    customer = inserted;
+  }
 
   if (platform === 'ios') {
     const pkpass = await generatePkpass(brandName, card, customer);
