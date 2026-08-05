@@ -30,7 +30,6 @@ Alpine.data('app', () => ({
     newBranchName: '',
     newBranchSlug: '',
     subscription: null,
-    invoices: [],
     card: {},
     cards: [],
     pendingBgFile: null,
@@ -250,7 +249,6 @@ Alpine.data('app', () => ({
     openBillingTab() {
       this.activeTab = 'billing';
       this.loadSubscription();
-      this.loadInvoices();
     },
     openSecurityTab() {
       this.activeTab = 'security';
@@ -400,25 +398,6 @@ Alpine.data('app', () => ({
         .eq('org_id', this.org.id)
         .maybeSingle();
       this.subscription = data || null;
-    },
-
-    async loadInvoices() {
-      const { data } = await supabase
-        .from('invoices')
-        .select('id, amount_agorot, status, created_at, receipt_number')
-        .eq('org_id', this.org.id)
-        .order('created_at', { ascending: false })
-        .limit(24);
-      this.invoices = data || [];
-    },
-
-    async downloadReceipt(invoiceId) {
-      this.statusMsg = '';
-      const { data, error } = await supabase.functions.invoke('download-receipt', {
-        body: { invoice_id: invoiceId },
-      });
-      if (error) { this.statusMsg = error.message; return; }
-      window.open(data.url, '_blank');
     },
 
     async loadTeam() {

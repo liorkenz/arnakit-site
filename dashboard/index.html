@@ -479,29 +479,6 @@
               </div>
             </template>
             <template x-if="!subscription"><p class="muted">אין עדיין מנוי פעיל.</p></template>
-
-            <template x-if="invoices.length > 0">
-              <div style="margin-top:32px;">
-                <h3 style="font-size:15px; margin-bottom:10px;">קבלות</h3>
-                <table>
-                  <thead><tr><th>תאריך</th><th>סכום</th><th>סטטוס</th><th></th></tr></thead>
-                  <tbody>
-                    <template x-for="inv in invoices" :key="inv.id">
-                      <tr>
-                        <td x-text="new Date(inv.created_at).toLocaleDateString('he-IL')"></td>
-                        <td x-text="'₪' + (inv.amount_agorot/100).toFixed(0)"></td>
-                        <td><span class="badge" :class="inv.status" x-text="inv.status === 'success' ? 'שולם' : 'נכשל'"></span></td>
-                        <td>
-                          <template x-if="inv.receipt_number">
-                            <button class="ghost" @click="downloadReceipt(inv.id)" style="font-size:13px;">הורדת קבלה</button>
-                          </template>
-                        </td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-            </template>
           </div>
         </template>
 

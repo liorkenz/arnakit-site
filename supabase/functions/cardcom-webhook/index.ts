@@ -4,7 +4,6 @@
 // a duplicate webhook delivery (Cardcom retries on non-2xx) is a no-op the second time.
 import { supabaseAdmin, reactivateCardsForOrg } from '../_shared/supabaseAdmin.ts';
 import { getLowProfileResult } from '../_shared/cardcomClient.ts';
-import { generateReceiptForInvoice } from '../_shared/generateReceipt.ts';
 
 Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
@@ -64,22 +63,13 @@ Deno.serve(async (req) => {
     })
     .eq('id', subscription.id);
 
-  const amountAgorot = result.amountAgorot || subscription.price_agorot;
-  const { data: invoice } = await supabaseAdmin
-    .from('invoices')
-    .insert({
-      subscription_id: subscription.id,
-      org_id: result.orgId,
-      provider_charge_id: result.transactionId,
-      amount_agorot: amountAgorot,
-      status: 'success',
-    })
-    .select('id')
-    .single();
-
-  if (invoice) {
-    await generateReceiptForInvoice(invoice.id, result.orgId, result.planTier ?? subscription.plan_tier, amountAgorot);
-  }
+  await supabaseAdmin.from('invoices').insert({
+    subscription_id: subscription.id,
+    org_id: result.orgId,
+    provider_charge_id: result.transactionId,
+    amount_agorot: result.amountAgorot || subscription.price_agorot,
+    status: 'success',
+  });
 
   // covers re-subscribing after a cancellation, where the org's cards were deactivated
   await reactivateCardsForOrg(result.orgId);
