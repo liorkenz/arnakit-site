@@ -33,13 +33,24 @@ function renderConsent(brandName) {
     <h1>${brandName}</h1>
     <p>אנחנו נשמור מספר טלפון/אימייל (אם תמסרו לעסק), מונה התווים שלכם, ומועדי הביקור — כדי להפעיל את כרטיס הנאמנות. פרטים מלאים ב<a href="/privacy.html" target="_blank">מדיניות הפרטיות</a>.</p>
     <label>
+      <input type="checkbox" id="acceptTerms">
+      <span>קראתי ואני מסכימ/ה ל<a href="/terms.html" target="_blank">תנאי השימוש</a> ול<a href="/privacy.html" target="_blank">מדיניות הפרטיות</a></span>
+    </label>
+    <label>
       <input type="checkbox" id="promo">
       <span>אני מעוניין/ת לקבל מ-${brandName} עדכונים על מבצעים והטבות (ניתן להסיר בכל עת מגב הכרטיס)</span>
     </label>
-    <button id="submitBtn">הוסיפו לארנק הדיגיטלי</button>
+    <button id="submitBtn" disabled>הוסיפו לארנק הדיגיטלי</button>
   `;
 
-  document.getElementById('submitBtn').addEventListener('click', () => {
+  const acceptTerms = document.getElementById('acceptTerms');
+  const submitBtn = document.getElementById('submitBtn');
+  acceptTerms.addEventListener('change', () => {
+    submitBtn.disabled = !acceptTerms.checked;
+  });
+
+  submitBtn.addEventListener('click', () => {
+    if (!acceptTerms.checked) return;
     const promo = document.getElementById('promo').checked ? '1' : '0';
     window.location.href = `${enrollUrl}&promo=${promo}`;
   });
