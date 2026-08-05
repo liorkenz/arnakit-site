@@ -17,16 +17,26 @@ function getRubikFontBytes(): Uint8Array {
   return bytes;
 }
 
-// Simple heuristic reversal for short Hebrew label/value strings so they
-// display right-to-left when drawn with pdf-lib (which always draws
-// left-to-right, character by character, with no bidi algorithm of its
-// own). Only reverses runs of Hebrew letters — leaves numbers, ₪, and Latin
-// text (dates, amounts) in their normal reading order within the string.
+// pdf-lib (via the embedded fontkit font) automatically reverses the entire
+// drawn string, character by character, whenever it contains Hebrew — this
+// is not a real bidi algorithm, just a blind full-string reversal. That
+// happens to land correctly for pure Hebrew letter runs (confirmed against
+// real browser bidi via getBoundingClientRect), but it also incorrectly
+// flips embedded non-Hebrew runs — digits, Latin words ("Arnakit", "basic"),
+// symbols — which bidi is supposed to keep reading left-to-right. So: leave
+// word/token order and Hebrew letters untouched (pdf-lib's own reversal
+// already gets those right), and pre-reverse every token that contains no
+// Hebrew at all, so pdf-lib's reversal un-does that and restores correct
+// left-to-right reading for numbers and Latin text. Verified
+// character-for-character against real browser bidi rendering for the
+// business name, dates, amounts and multi-word Hebrew/Latin/number phrases —
+// the only known residual gap is parenthesis mirroring in mixed number+paren
+// clusters with no surrounding space (e.g. "31(3)"), a cosmetic-only edge
+// case that doesn't affect any real transactional data.
 function rtlFix(text: string): string {
   return text
     .split(/(\s+)/)
-    .map((word) => (/[֐-׿]/.test(word) ? word.split('').reverse().join('') : word))
-    .reverse()
+    .map((token) => (!/[֐-׿]/.test(token) ? token.split('').reverse().join('') : token))
     .join('');
 }
 
