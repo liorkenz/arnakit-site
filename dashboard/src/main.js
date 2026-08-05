@@ -487,7 +487,14 @@ Alpine.data('app', () => ({
         p_chain_invite_token: usedChainInvite,
       });
       this.sending = false;
-      if (error) { this.authError = error.message; return; }
+      if (error) {
+        // A taken slug bubbles up as a raw Postgres constraint error — surface
+        // something a non-technical owner can act on instead.
+        this.authError = error.message.includes('businesses_slug_key')
+          ? 'הכתובת הציבורית הזו כבר תפוסה — נסו כתובת אחרת.'
+          : error.message;
+        return;
+      }
       localStorage.removeItem('arnakit_chain_invite');
       this.chainInviteToken = null;
       await this.loadOrg();
