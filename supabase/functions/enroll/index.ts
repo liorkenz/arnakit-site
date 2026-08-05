@@ -89,6 +89,8 @@ Deno.serve(async (req) => {
 
   const marketingConsent = url.searchParams.get('promo') === '1';
   const brandName = org?.name || business.name;
+  const name = url.searchParams.get('name')?.trim() || null;
+  const phone = url.searchParams.get('phone')?.trim() || null;
 
   const { data: customer } = await supabaseAdmin
     .from('customers')
@@ -98,6 +100,8 @@ Deno.serve(async (req) => {
       platform,
       marketing_consent: marketingConsent,
       consented_at: new Date().toISOString(),
+      name,
+      phone,
     })
     .select('*')
     .single();

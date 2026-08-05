@@ -31,7 +31,11 @@ function renderConsent(brandName) {
 
   app.innerHTML = `
     <h1>${brandName}</h1>
-    <p>אנחנו נשמור מספר טלפון/אימייל (אם תמסרו לעסק), מונה התווים שלכם, ומועדי הביקור — כדי להפעיל את כרטיס הנאמנות. פרטים מלאים ב<a href="/privacy.html" target="_blank">מדיניות הפרטיות</a>.</p>
+    <p>אנחנו נשמור את השם שלכם, מספר טלפון/אימייל (אם תמסרו), מונה התווים שלכם, ומועדי הביקור — כדי להפעיל את כרטיס הנאמנות ולזהות אתכם בעסק. פרטים מלאים ב<a href="/privacy.html" target="_blank">מדיניות הפרטיות</a>.</p>
+    <label for="nameInput" style="display:block; font-size:14px; margin-bottom:6px; cursor:default;">שם מלא</label>
+    <input type="text" id="nameInput" placeholder="ישראל ישראלי" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--ink); color:var(--paper); font-size:15px; margin-bottom:16px; box-sizing:border-box;">
+    <label for="phoneInput" style="display:block; font-size:14px; margin-bottom:6px; cursor:default;">טלפון (לא חובה)</label>
+    <input type="tel" id="phoneInput" placeholder="050-0000000" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--ink); color:var(--paper); font-size:15px; margin-bottom:20px; box-sizing:border-box;">
     <label>
       <input type="checkbox" id="acceptTerms">
       <span>קראתי ואני מסכימ/ה ל<a href="/terms.html" target="_blank">תנאי השימוש</a> ול<a href="/privacy.html" target="_blank">מדיניות הפרטיות</a></span>
@@ -43,16 +47,21 @@ function renderConsent(brandName) {
     <button id="submitBtn" disabled>הוסיפו לארנק הדיגיטלי</button>
   `;
 
+  const nameInput = document.getElementById('nameInput');
   const acceptTerms = document.getElementById('acceptTerms');
   const submitBtn = document.getElementById('submitBtn');
-  acceptTerms.addEventListener('change', () => {
-    submitBtn.disabled = !acceptTerms.checked;
-  });
+  const updateSubmitState = () => {
+    submitBtn.disabled = !acceptTerms.checked || !nameInput.value.trim();
+  };
+  acceptTerms.addEventListener('change', updateSubmitState);
+  nameInput.addEventListener('input', updateSubmitState);
 
   submitBtn.addEventListener('click', () => {
-    if (!acceptTerms.checked) return;
+    if (submitBtn.disabled) return;
     const promo = document.getElementById('promo').checked ? '1' : '0';
-    window.location.href = `${enrollUrl}&promo=${promo}`;
+    const name = encodeURIComponent(nameInput.value.trim());
+    const phone = encodeURIComponent(document.getElementById('phoneInput').value.trim());
+    window.location.href = `${enrollUrl}&promo=${promo}&name=${name}&phone=${phone}`;
   });
 }
 

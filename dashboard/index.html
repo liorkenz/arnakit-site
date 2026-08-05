@@ -336,7 +336,10 @@
               <tbody>
                 <template x-for="c in customers" :key="c.id">
                   <tr>
-                    <td x-text="c.phone || c.email || c.pass_serial_number.slice(0,8)"></td>
+                    <td>
+                      <div x-text="c.name || 'ללא שם (נרשם/ה לפני העדכון)'"></div>
+                      <div class="muted" style="font-size:12px;" x-text="c.phone || c.email || ''"></div>
+                    </td>
                     <td x-text="card.reward_type === 'stamps' ? (c.stamps_count + ' / ' + card.target_count) : ('₪' + (c.credit_balance_agorot/100).toFixed(0))"></td>
                     <td x-text="c.last_visit_at ? new Date(c.last_visit_at).toLocaleDateString('he-IL') : '—'"></td>
                     <td>
