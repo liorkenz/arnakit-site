@@ -706,6 +706,12 @@ Alpine.data('app', () => ({
     async startScanner() {
       this.scanError = '';
       this.scannedCustomer = null;
+      // A previous stream's tracks may already be stopped, but the <video>
+      // element itself can still hold onto the old srcObject — on some
+      // browsers (notably mobile Safari) that stale state stops a second
+      // getUserMedia stream from ever showing, so the camera silently never
+      // comes back after scanning one customer. Force a clean slate first.
+      this.stopScanner();
       try {
         this.scannerStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
@@ -744,6 +750,11 @@ Alpine.data('app', () => ({
       if (this.scannerLoopId) cancelAnimationFrame(this.scannerLoopId);
       if (this.scannerStream) this.scannerStream.getTracks().forEach((t) => t.stop());
       this.scannerStream = null;
+      const video = this.$refs.scannerVideo;
+      if (video) {
+        video.pause();
+        video.srcObject = null;
+      }
     },
 
     async handleScanResult(serialNumber) {
