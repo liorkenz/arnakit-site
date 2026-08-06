@@ -756,7 +756,12 @@ Alpine.data('app', () => ({
         .maybeSingle();
 
       if (error || !data) {
+        // Clear any previously-scanned customer too — otherwise a failed
+        // rescan leaves the last customer's card on screen behind the error
+        // message, and a staff member who doesn't notice could add a stamp
+        // to the wrong person.
         this.scanError = 'הכרטיס לא זוהה — ודאו שזה כרטיס של הרשת שלכם.';
+        this.scannedCustomer = null;
         return;
       }
       this.scannedCustomer = data;
