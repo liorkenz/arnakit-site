@@ -199,7 +199,7 @@
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                       <button @click="scannedAddStamp()">+ תו</button>
                       <template x-if="scannedCustomer.stamps_count >= card.target_count">
-                        <button class="ghost" @click="scannedRedeemStampReward()">פדה פרס</button>
+                        <button class="ghost" @click="scannedRedeemStampReward()">מימוש מתנה</button>
                       </template>
                     </div>
                   </div>
@@ -288,8 +288,9 @@
                   <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); width:60px; height:16px; background:#000; border-radius:0 0 12px 12px; z-index:2;"></div>
                   <div style="width:100%; height:100%; border-radius:24px; overflow:hidden; background:#fff; position:relative;">
                     <div :style="'background:' + previewGradient + '; width:100%; height:100%; padding:16px 10px; box-sizing:border-box; color:#f6f4ef; font-family:Rubik,sans-serif; display:flex; flex-direction:column;'">
+                      <div style="font-weight:800; font-size:11px; color:#49d6c4; margin-bottom:6px;" x-text="org.name || 'שם העסק'"></div>
                       <template x-if="previewImageUrl">
-                        <img :src="previewImageUrl" style="width:100%; height:95px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+                        <img :src="previewImageUrl" style="width:100%; aspect-ratio:3/1; object-fit:cover; border-radius:8px; margin-bottom:8px;">
                       </template>
                       <div style="font-weight:700; font-size:12px; margin-bottom:4px;" x-text="card.name || 'שם הכרטיס'"></div>
                       <div style="font-size:18px; font-weight:800;" x-text="card.reward_type === 'stamps' ? ('0 / ' + (card.target_count || 10)) : '₪0'"></div>
@@ -305,8 +306,9 @@
                   <div style="position:absolute; top:16px; left:50%; transform:translateX(-50%); width:10px; height:10px; background:#000; border-radius:50%; z-index:2;"></div>
                   <div style="width:100%; height:100%; border-radius:12px; overflow:hidden; background:#fff; position:relative;">
                     <div :style="'background:' + previewGradient + '; width:100%; height:100%; padding:20px 10px 16px; box-sizing:border-box; color:#f6f4ef; font-family:Rubik,sans-serif; display:flex; flex-direction:column;'">
+                      <div style="font-weight:800; font-size:11px; margin-bottom:6px;" x-text="org.name || 'שם העסק'"></div>
                       <template x-if="previewImageUrl">
-                        <img :src="previewImageUrl" style="width:100%; height:100px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+                        <img :src="previewImageUrl" style="width:100%; aspect-ratio:3/1; object-fit:cover; border-radius:8px; margin-bottom:8px;">
                       </template>
                       <div style="font-weight:700; font-size:12px; margin-bottom:4px;" x-text="card.name || 'שם הכרטיס'"></div>
                       <div style="font-size:18px; font-weight:800;" x-text="card.reward_type === 'stamps' ? ('0 / ' + (card.target_count || 10)) : '₪0'"></div>
@@ -392,7 +394,7 @@
                         <div style="display:flex; gap:6px; align-items:center;">
                           <button @click="addStamp(c.id)">+ תו</button>
                           <template x-if="c.stamps_count >= card.target_count">
-                            <button class="ghost" @click="redeemStampReward(c.id, c.stamps_count)">פדה פרס</button>
+                            <button class="ghost" @click="redeemStampReward(c.id, c.stamps_count)">מימוש מתנה</button>
                           </template>
                         </div>
                       </template>

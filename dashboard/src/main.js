@@ -384,7 +384,8 @@ Alpine.data('app', () => ({
         return;
       }
 
-      this.org = { id: memberships[0].org_id };
+      const { data: orgRow } = await supabase.from('orgs').select('id, name').eq('id', memberships[0].org_id).single();
+      this.org = orgRow || { id: memberships[0].org_id };
       this.myRole = memberships[0].role;
       this.myBusinessId = memberships[0].business_id;
       // Default activeTab is 'card', an owner-only tab — a staff/manager

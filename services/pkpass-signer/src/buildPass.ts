@@ -59,6 +59,11 @@ export async function buildPass(data: CardData): Promise<Buffer> {
       serialNumber: data.serialNumber,
       description: `${data.businessName} — כרטיס נאמנות`,
       organizationName: data.businessName,
+      // organizationName alone isn't shown as visible text in the pass header —
+      // logoText is what Wallet actually displays next to the logo image. Without
+      // it, every business's card showed the same bundled generic logo.png with
+      // no business name anywhere on the card face at all.
+      logoText: data.businessName,
       passTypeIdentifier: data.passTypeId,
       teamIdentifier: process.env.APPLE_TEAM_ID!,
       webServiceURL: data.webServiceUrl,
