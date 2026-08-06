@@ -53,6 +53,7 @@ Alpine.data('app', () => ({
     mfaEnrollCode: '',
     isPlatformAdmin: false,
     adminClients: [],
+    adminClientSearchQuery: '',
     adminSelectedClient: null,
     preAdminView: 'dashboard',
     purchaseAmounts: {},
@@ -109,6 +110,11 @@ Alpine.data('app', () => ({
       const q = this.customerSearchQuery.trim();
       if (!q) return this.customers;
       return this.customers.filter((c) => (c.name || '').includes(q) || (c.phone || '').includes(q));
+    },
+    get filteredAdminClients() {
+      const q = this.adminClientSearchQuery.trim();
+      if (!q) return this.adminClients;
+      return this.adminClients.filter((c) => (c.org_name || '').includes(q));
     },
     get messagesRemaining() {
       return this.isBasicPlan ? Math.max(0, 4 - this.campaignsSentThisMonth) : null;
@@ -222,6 +228,32 @@ Alpine.data('app', () => ({
       this.sending = false;
       if (error) { this.statusMsg = error.message; return; }
       this.statusMsg = 'המחיר עודכן.';
+      await this.openAdminClientDetail(this.adminSelectedClient.org.id);
+    },
+
+    async adminCancelSubscription() {
+      if (!confirm('לבטל את המנוי של הלקוח הזה? הכרטיסים שלו יושבתו מיד.')) return;
+      this.sending = true;
+      this.statusMsg = '';
+      const { error } = await supabase.functions.invoke('admin-cancel-subscription', {
+        body: { org_id: this.adminSelectedClient.org.id },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.statusMsg = 'המנוי בוטל.';
+      await this.openAdminClientDetail(this.adminSelectedClient.org.id);
+    },
+
+    async adminDeleteCard(cardId) {
+      if (!confirm('למחוק את הכרטיס הזה לצמיתות? הלקוחות והנקודות שלהם לא יימחקו, רק הגדרות הכרטיס.')) return;
+      this.sending = true;
+      this.statusMsg = '';
+      const { error } = await supabase.functions.invoke('admin-delete-card', {
+        body: { org_id: this.adminSelectedClient.org.id, card_id: cardId },
+      });
+      this.sending = false;
+      if (error) { this.statusMsg = error.message; return; }
+      this.statusMsg = 'הכרטיס נמחק.';
       await this.openAdminClientDetail(this.adminSelectedClient.org.id);
     },
 

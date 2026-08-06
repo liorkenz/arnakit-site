@@ -608,10 +608,11 @@
 
           <div class="panel">
             <h2>כל הלקוחות (<span x-text="adminClients.length"></span>)</h2>
+            <input type="text" x-model="adminClientSearchQuery" placeholder="חיפוש לפי שם ארגון" style="margin-bottom:16px; max-width:320px;">
             <table>
               <thead><tr><th>ארגון</th><th>תוכנית</th><th>סטטוס</th><th>סניפים</th><th>לקוחות</th></tr></thead>
               <tbody>
-                <template x-for="c in adminClients" :key="c.org_id">
+                <template x-for="c in filteredAdminClients" :key="c.org_id">
                   <tr style="cursor:pointer;" @click="openAdminClientDetail(c.org_id)">
                     <td x-text="c.org_name"></td>
                     <td x-text="c.plan_tier || '—'"></td>
@@ -622,6 +623,9 @@
                 </template>
                 <template x-if="adminClients.length === 0">
                   <tr><td colspan="5" class="muted">אין עדיין לקוחות רשומים.</td></tr>
+                </template>
+                <template x-if="adminClients.length > 0 && filteredAdminClients.length === 0">
+                  <tr><td colspan="5" class="muted">לא נמצאו ארגונים התואמים לחיפוש.</td></tr>
                 </template>
               </tbody>
             </table>
@@ -634,6 +638,18 @@
             <button class="ghost" @click="adminSelectedClient = null" style="margin-bottom:16px; font-size:13px;">← חזרה לרשימה</button>
             <h2 x-text="adminSelectedClient.org.name"></h2>
             <p class="muted" style="margin-bottom:20px;" x-text="'סה\'כ לקוחות (כל הסניפים): ' + adminSelectedClient.total_customers"></p>
+
+            <template x-if="adminSelectedClient.subscription">
+              <div style="margin-bottom:24px; display:flex; align-items:center; gap:12px;">
+                <p>
+                  <span x-text="'תוכנית: ' + adminSelectedClient.subscription.plan_tier"></span>
+                  <span class="badge" :class="adminSelectedClient.subscription.status" x-text="adminSelectedClient.subscription.status"></span>
+                </p>
+                <template x-if="adminSelectedClient.subscription.status === 'active'">
+                  <button class="ghost" @click="adminCancelSubscription()" :disabled="sending" style="font-size:13px;">ביטול המנוי</button>
+                </template>
+              </div>
+            </template>
 
             <template x-if="adminSelectedClient.subscription && adminSelectedClient.subscription.plan_tier === 'chain'">
               <div style="margin-bottom:24px;">
@@ -656,13 +672,14 @@
             </table>
             <h3 style="font-size:15px; margin-bottom:10px;">כרטיסים (משותפים לכל הסניפים)</h3>
             <table>
-              <thead><tr><th>כרטיס</th><th>סוג</th><th>סטטוס</th></tr></thead>
+              <thead><tr><th>כרטיס</th><th>סוג</th><th>סטטוס</th><th></th></tr></thead>
               <tbody>
                 <template x-for="card in adminSelectedClient.cards" :key="card.id">
                   <tr>
                     <td x-text="card.name"></td>
                     <td x-text="card.reward_type === 'stamps' ? 'תווים' : 'קרדיט'"></td>
                     <td x-text="card.is_active ? 'פעיל' : 'לא פעיל'"></td>
+                    <td><button class="ghost" @click="adminDeleteCard(card.id)" :disabled="sending" style="font-size:13px;">מחיקה</button></td>
                   </tr>
                 </template>
               </tbody>
