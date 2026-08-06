@@ -36,6 +36,8 @@ Alpine.data('app', () => ({
     bgPreviewDataUrl: null,
     customers: [],
     customerSearchQuery: '',
+    historyCustomerId: null,
+    customerHistory: [],
     activeTab: 'card',
     campaignMessage: '',
     campaignsSentThisMonth: 0,
@@ -659,6 +661,7 @@ Alpine.data('app', () => ({
           name: this.card.name,
           reward_type: this.card.reward_type,
           target_count: this.card.target_count,
+          stamp_cooldown_enabled: this.card.stamp_cooldown_enabled,
           reward_description: this.card.reward_description,
           color_c1: this.card.color_c1,
           color_c2: this.card.color_c2,
@@ -827,7 +830,13 @@ Alpine.data('app', () => ({
         type: 'stamp',
         created_by: this.session.user.id,
       });
-      if (!error) await this.loadCustomers();
+      if (!error) {
+        await this.loadCustomers();
+        return;
+      }
+      this.statusMsg = error.message.includes('stamp_cooldown_active')
+        ? 'הלקוח/ה כבר קיבל/ה תו ב-24 השעות האחרונות.'
+        : error.message;
     },
 
     // Credit-mode cards: the restaurateur enters the sale amount and the system
@@ -887,6 +896,24 @@ Alpine.data('app', () => ({
       });
       if (!error) await this.loadCustomers();
       else this.statusMsg = error.message;
+    },
+
+    // Lets an owner/manager spot abuse (e.g. the same customer racking up
+    // stamps a minute apart) by seeing exactly when each one was recorded.
+    async openCustomerHistory(customerId) {
+      this.historyCustomerId = customerId;
+      const { data } = await supabase
+        .from('stamp_events')
+        .select('id, type, delta, note, created_at')
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      this.customerHistory = data || [];
+    },
+
+    closeCustomerHistory() {
+      this.historyCustomerId = null;
+      this.customerHistory = [];
     },
 
     async loadCampaignQuotaUsage() {

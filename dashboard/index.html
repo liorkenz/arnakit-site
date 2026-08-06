@@ -253,6 +253,10 @@
               <div>
                 <label for="targetCount">כמות תווים ליעד</label>
                 <input type="number" id="targetCount" x-model.number="card.target_count" min="1" max="20">
+                <label style="display:flex; align-items:center; gap:8px; font-weight:400; margin-bottom:14px;">
+                  <input type="checkbox" x-model="card.stamp_cooldown_enabled" style="width:auto;">
+                  <span>הגבלת תו אחד ל-24 שעות ללקוח (מונע ניצול לרעה)</span>
+                </label>
               </div>
             </template>
             <template x-if="card.reward_type === 'credit'">
@@ -275,7 +279,8 @@
             </fieldset>
             <label for="bgUpload">תמונת רקע</label>
             <input type="file" id="bgUpload" accept="image/*" @change="previewBackground($event)">
-            <p class="muted" style="font-size:12.5px; margin-top:-8px; margin-bottom:14px;">כך זה ייראה — התמונה נשמרת רק כשלוחצים "שמירת שינויים".</p>
+            <p class="muted" style="font-size:12.5px; margin-top:-8px; margin-bottom:4px;">מומלץ: תמונה רחבה ביחס של כ-3:1 (לדוגמה 1032×336 פיקסלים) — כך היא תיראה הכי טוב הן ב-Apple Wallet והן ב-Google Wallet.</p>
+            <p class="muted" style="font-size:12.5px; margin-bottom:14px;">כך זה ייראה — התמונה נשמרת רק כשלוחצים "שמירת שינויים".</p>
 
             <div style="display:flex; gap:24px; flex-wrap:wrap; justify-content:center; margin-bottom:20px;">
               <div>
@@ -284,7 +289,7 @@
                   <div style="width:100%; height:100%; border-radius:24px; overflow:hidden; background:#fff; position:relative;">
                     <div :style="'background:' + previewGradient + '; width:100%; height:100%; padding:16px 10px; box-sizing:border-box; color:#f6f4ef; font-family:Rubik,sans-serif; display:flex; flex-direction:column;'">
                       <template x-if="previewImageUrl">
-                        <img :src="previewImageUrl" style="width:100%; height:60px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+                        <img :src="previewImageUrl" style="width:100%; height:95px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
                       </template>
                       <div style="font-weight:700; font-size:12px; margin-bottom:4px;" x-text="card.name || 'שם הכרטיס'"></div>
                       <div style="font-size:18px; font-weight:800;" x-text="card.reward_type === 'stamps' ? ('0 / ' + (card.target_count || 10)) : '₪0'"></div>
@@ -301,7 +306,7 @@
                   <div style="width:100%; height:100%; border-radius:12px; overflow:hidden; background:#fff; position:relative;">
                     <div :style="'background:' + previewGradient + '; width:100%; height:100%; padding:20px 10px 16px; box-sizing:border-box; color:#f6f4ef; font-family:Rubik,sans-serif; display:flex; flex-direction:column;'">
                       <template x-if="previewImageUrl">
-                        <img :src="previewImageUrl" style="width:100%; height:70px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+                        <img :src="previewImageUrl" style="width:100%; height:100px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
                       </template>
                       <div style="font-weight:700; font-size:12px; margin-bottom:4px;" x-text="card.name || 'שם הכרטיס'"></div>
                       <div style="font-size:18px; font-weight:800;" x-text="card.reward_type === 'stamps' ? ('0 / ' + (card.target_count || 10)) : '₪0'"></div>
@@ -399,6 +404,7 @@
                           <button class="ghost" @click="redeemCredit(c.id)">מימוש</button>
                         </div>
                       </template>
+                      <button class="ghost" @click="openCustomerHistory(c.id)" style="font-size:12px; margin-top:6px;">היסטוריה</button>
                     </td>
                   </tr>
                 </template>
@@ -410,6 +416,31 @@
                 </template>
               </tbody>
             </table>
+
+            <template x-if="historyCustomerId">
+              <div class="panel" style="margin-top:20px; border:1px solid var(--line);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <h3 style="font-size:15px;">היסטוריית תווים/קרדיט</h3>
+                  <button class="ghost" @click="closeCustomerHistory()" style="font-size:13px;">סגירה</button>
+                </div>
+                <table>
+                  <thead><tr><th>תאריך ושעה</th><th>סוג</th><th>שינוי</th><th>הערה</th></tr></thead>
+                  <tbody>
+                    <template x-for="h in customerHistory" :key="h.id">
+                      <tr>
+                        <td x-text="new Date(h.created_at).toLocaleString('he-IL')"></td>
+                        <td x-text="h.type"></td>
+                        <td x-text="(h.delta > 0 ? '+' : '') + h.delta"></td>
+                        <td x-text="h.note || ''"></td>
+                      </tr>
+                    </template>
+                    <template x-if="customerHistory.length === 0">
+                      <tr><td colspan="4" class="muted">אין עדיין היסטוריה ללקוח/ה זו.</td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </template>
           </div>
         </template>
 
