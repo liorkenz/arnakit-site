@@ -10,12 +10,16 @@
   },
   "dependencies": {
     "express": "^4.19.2",
-    "passkit-generator": "^3.3.0"
+    "passkit-generator": "^3.3.0",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.5.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true
   }
 }

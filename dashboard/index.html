@@ -290,7 +290,7 @@
                     <div :style="'background:' + previewGradient + '; width:100%; height:100%; padding:16px 10px; box-sizing:border-box; color:#f6f4ef; font-family:Rubik,sans-serif; display:flex; flex-direction:column;'">
                       <div style="font-weight:800; font-size:11px; color:#49d6c4; margin-bottom:6px;" x-text="org.name || 'שם העסק'"></div>
                       <template x-if="previewImageUrl">
-                        <img :src="previewImageUrl" style="width:100%; aspect-ratio:3/1; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+                        <img :src="previewImageUrl" style="width:100%; aspect-ratio:3/1; object-fit:cover; border-radius:8px; margin-bottom:8px; filter:brightness(0.65);">
                       </template>
                       <div style="font-weight:700; font-size:12px; margin-bottom:4px;" x-text="card.name || 'שם הכרטיס'"></div>
                       <div style="font-size:18px; font-weight:800;" x-text="card.reward_type === 'stamps' ? ('0 / ' + (card.target_count || 10)) : '₪0'"></div>

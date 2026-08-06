@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PKPass } from 'passkit-generator';
+import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODEL_DIR = path.join(__dirname, '..', 'model.pass');
@@ -30,6 +31,24 @@ function hexToRgb(hex: string): string {
   const g = parseInt(clean.slice(2, 4), 16);
   const b = parseInt(clean.slice(4, 6), 16);
   return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Apple always overlays the pass's primary/secondary fields (the stamp/credit
+// count) directly on top of the strip image for storeCard passes — that's
+// fixed by Apple's own pass rendering, not something pass.json can move. A
+// merchant's photo can end up hard to read underneath the text, so darken it
+// slightly before handing it to Apple, rather than leaving the raw photo as
+// the text's background.
+async function darkenForOverlayText(buffer: Buffer, opacity = 0.35): Promise<Buffer> {
+  const metadata = await sharp(buffer).metadata();
+  const width = metadata.width ?? 750;
+  const height = metadata.height ?? 246;
+  const veil = await sharp({
+    create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: opacity } },
+  })
+    .png()
+    .toBuffer();
+  return sharp(buffer).resize(width, height).composite([{ input: veil, blend: 'over' }]).png().toBuffer();
 }
 
 // NOTE: this targets passkit-generator v3's PKPass.from(source, props) + field-bag API.
@@ -84,7 +103,8 @@ export async function buildPass(data: CardData): Promise<Buffer> {
     try {
       const imgRes = await fetch(data.backgroundImageUrl);
       if (imgRes.ok) {
-        const buffer = Buffer.from(await imgRes.arrayBuffer());
+        const rawBuffer = Buffer.from(await imgRes.arrayBuffer());
+        const buffer = await darkenForOverlayText(rawBuffer);
         pass.addBuffer('strip.png', buffer);
         pass.addBuffer('strip@2x.png', buffer);
       } else {
