@@ -911,6 +911,18 @@ Alpine.data('app', () => ({
       this.customerHistory = data || [];
     },
 
+    // CSP-safe Alpine can't parse "new Date(...)" inline in an x-text
+    // expression (the "new" keyword isn't supported by its restricted
+    // expression parser) — same class of bug as the ?./arrow-function issues
+    // fixed earlier, just newly hit here. Format dates in a real method
+    // instead of inline in the template.
+    formatDate(dateStr) {
+      return dateStr ? new Date(dateStr).toLocaleDateString('he-IL') : '—';
+    },
+    formatDateTime(dateStr) {
+      return dateStr ? new Date(dateStr).toLocaleString('he-IL') : '—';
+    },
+
     closeCustomerHistory() {
       this.historyCustomerId = null;
       this.customerHistory = [];

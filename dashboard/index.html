@@ -386,7 +386,7 @@
                       <div class="muted" style="font-size:12px;" x-text="c.phone || c.email || ''"></div>
                     </td>
                     <td x-text="card.reward_type === 'stamps' ? (c.stamps_count + ' / ' + card.target_count) : ('₪' + (c.credit_balance_agorot/100).toFixed(0))"></td>
-                    <td x-text="c.last_visit_at ? new Date(c.last_visit_at).toLocaleDateString('he-IL') : '—'"></td>
+                    <td x-text="formatDate(c.last_visit_at)"></td>
                     <td>
                       <template x-if="card.reward_type === 'stamps'">
                         <div style="display:flex; gap:6px; align-items:center;">
@@ -428,7 +428,7 @@
                   <tbody>
                     <template x-for="h in customerHistory" :key="h.id">
                       <tr>
-                        <td x-text="new Date(h.created_at).toLocaleString('he-IL')"></td>
+                        <td x-text="formatDateTime(h.created_at)"></td>
                         <td x-text="h.type"></td>
                         <td x-text="(h.delta > 0 ? '+' : '') + h.delta"></td>
                         <td x-text="h.note || ''"></td>
