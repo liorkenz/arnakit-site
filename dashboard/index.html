@@ -509,6 +509,12 @@
                   <span class="badge" :class="subscription.status" x-text="subscription.status"></span>
                 </p>
                 <p class="muted" x-text="'מחיר: ₪' + (subscription.price_agorot/100).toFixed(0) + ' לחודש'"></p>
+                <template x-if="subscription.plan_tier === 'basic'">
+                  <div style="margin-top:14px;">
+                    <p class="muted" style="margin-bottom:8px;">שדרוג לתוכנית המומלצת (₪230/חודש) — כרטיסים והודעות ללא הגבלה.</p>
+                    <button @click="subscribeToPlan('featured')" :disabled="sending" style="font-size:13px;">שדרוג לתוכנית המומלצת</button>
+                  </div>
+                </template>
                 <template x-if="subscription.status === 'active' && isOwner">
                   <button class="ghost" @click="cancelSubscription()" :disabled="sending" style="margin-top:14px; font-size:13px;">ביטול המנוי</button>
                 </template>
